@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>家庭集點銀行</title>
+   <style>
+       body { font-family: -apple-system, sans-serif; background: #fdf6e3; padding: 15px; color: #444; }
+       .card { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
+       h2 { text-align: center; color: #d35400; border-bottom: 2px solid #f39c12; padding-bottom: 10px; }
+       .item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #eee; }
+       .pts { color: #e67e22; font-weight: bold; margin-right: 8px; }
+       .score-zone { text-align: center; background: #fff3e0; padding: 15px; border-radius: 15px; margin: 20px 0; }
+       #total-score { font-size: 2em; color: #e67e22; display: block; }
+       .reward-info { background: #e8f5e9; padding: 10px; border-radius: 10px; font-size: 0.9em; margin-bottom: 15px; border-left: 5px solid #4caf50; }
+       .history { margin-top: 20px; padding-top: 15px; border-top: 2px dashed #ccc; font-size: 0.85em; }
+       button { width: 100%; padding: 12px; border: none; border-radius: 10px; font-size: 16px; cursor: pointer; transition: 0.3s; }
+       .btn-calc { background: #3498db; color: white; margin-bottom: 10px; }
+       .btn-reset { background: #ecf0f1; color: #7f8c8d; }
+       input[type="checkbox"] { transform: scale(1.5); }
+   </style>
+</head>
+<body>
+
+<div class="card">
+   <h2>🏆 我的集點銀行</h2>
+   
+   <div class="reward-info">
+       📺 10點 = 電視30分 | 📱 30點 = 平板1小時<br>
+       💰 剩餘點數：1點 = 1元現金
+   </div>
+
+   <div id="task-list">
+       <div class="item"><span>收拾玩具</span><div><span class="pts">+1</span><input type="checkbox" class="cb" data-pts="1"></div></div>
+       <div class="item"><span>整理書包</span><div><span class="pts">+1</span><input type="checkbox" class="cb" data-pts="1"></div></div>
+       <div class="item"><span>餐盤放水槽</span><div><span class="pts">+1</span><input type="checkbox" class="cb" data-pts="1"></div></div>
+       <div class="item"><span>便當放水槽</span><div><span class="pts">+1</span><input type="checkbox" class="cb" data-pts="1"></div></div>
+       <div class="item"><span>請家長簽名</span><div><span class="pts">+1</span><input type="checkbox" class="cb" data-pts="1"></div></div>
+       <div class="item"><span>20:00前完成作業</span><div><span class="pts">+1</span><input type="checkbox" class="cb" data-pts="1"></div></div>
+       <div class="item"><span>預習功課</span><div><span class="pts">+2</span><input type="checkbox" class="cb" data-pts="2"></div></div>
+       <div class="item"><span>讀完2本課外書(週)</span><div><span class="pts">+2</span><input type="checkbox" class="cb" data-pts="2"></div></div>
+       <div class="item"><span>完成自修一單元(週)</span><div><span class="pts">+2</span><input type="checkbox" class="cb" data-pts="2"></div></div>
+   </div>
+
+   <div class="score-zone">
+       本週目前累計
+       <span id="total-score">0</span>
+       <small id="reward-hint" style="color:#7f8c8d"></small>
+   </div>
+
+   <button class="btn-calc" onclick="settleWeek()">💰 週日結算 (存入存摺)</button>
+   <button class="btn-reset" onclick="resetToday()">清空當日勾選</button>
+
+   <div class="history">
+       <strong>📜 歷史存摺紀錄：</strong>
+       <div id="history-content">尚無紀錄</div>
+   </div>
+</div>
+
+<script>
+   const checkboxes = document.querySelectorAll('.cb');
+   const scoreText = document.getElementById('total-score');
+   const hintText = document.getElementById('reward-hint');
+   const historyDiv = document.getElementById('history-content');
+
+   // 即時計算分數
+   function updateScore() {
+       let score = 0;
+       checkboxes.forEach(cb => { if(cb.checked) score += parseInt(cb.dataset.pts); });
+       scoreText.innerText = score;
+       
+       if(score >= 30) hintText.innerText = "🎉 達標！可換平板囉";
+       else if(score >= 10) hintText.innerText = "📺 達標！可看電視囉";
+       else hintText.innerText = `還差 ${10-score} 點可換電視`;
+   }
+
+   // 結算功能
+   function settleWeek() {
+       let currentScore = parseInt(scoreText.innerText);
+       if(currentScore === 0) return alert("目前還沒有點數喔！");
+
+       let used = prompt(`本週總計 ${currentScore} 點。\n請問要扣除多少點兌換獎勵？(若不兌換請填0)`, "0");
+       if (used === null) return;
+       
+       let remaining = currentScore - parseInt(used);
+       if (remaining < 0) return alert("點數不足以兌換喔！");
+
+       let date = new Date().toLocaleDateString();
+       let log = `<div>📍 ${date}: 換獎扣 ${used}，剩餘 ${remaining} 點 (可領 ${remaining} 元)</div>`;
+       
+       // 儲存到歷史
+       let history = localStorage.getItem('point_history') || "";
+       localStorage.setItem('point_history', log + history);
+       
+       alert(`結算成功！已將 ${remaining} 點存入存摺。`);
+       resetToday();
+       loadHistory();
+   }
+
+   function resetToday() {
+       checkboxes.forEach(cb => cb.checked = false);
+       updateScore();
+   }
+
+   function loadHistory() {
+       const saved = localStorage.getItem('point_history');
+       if(saved) historyDiv.innerHTML = saved;
+   }
+
+   checkboxes.forEach(cb => cb.addEventListener('change', updateScore));
+   window.onload = loadHistory;
+</script>
+
+</body>
+</html>
