@@ -89,8 +89,8 @@
        let log = `<div>📍 ${date}: 換獎扣 ${used}，剩餘 ${remaining} 點 (可領 ${remaining} 元)</div>`;
        
        // 儲存到歷史
-       let history = localStorage.getItem('point_history') || "";
-       localStorage.setItem('point_history', log + history);
+       let history = localStorage.getItem('point_history2') || "";
+       localStorage.setItem('point_history2', log + history);
        
        alert(`結算成功！已將 ${remaining} 點存入存摺。`);
        resetToday();
@@ -103,7 +103,7 @@
    }
 
    function loadHistory() {
-       const saved = localStorage.getItem('point_history');
+       const saved = localStorage.getItem('point_history2');
        if(saved) historyDiv.innerHTML = saved;
    }
 
