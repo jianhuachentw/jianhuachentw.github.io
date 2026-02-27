@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>點數歷史圖表 - 集點銀行</title>
+    <!-- 引入 Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --main-color: #00796b;
+            --bg-color: #e0f2f1;
+        }
+
+        body {
+            font-family: -apple-system, "Microsoft JhengHei", sans-serif;
+            background: var(--bg-color);
+            padding: 15px;
+            color: #333;
+            transition: 0.3s;
+            margin: 0;
+        }
+
+        .card {
+            max-width: 600px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            gap: 10px;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            background: #eee;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1.1em;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .tab.active[data-child="yujie"] {
+            background: #00796b;
+            color: white;
+            border-color: #004d40;
+        }
+
+        .tab.active[data-child="yingan"] {
+            background: #673ab7;
+            color: white;
+            border-color: #4527a0;
+        }
+
+        h2 {
+            text-align: center;
+            color: var(--main-color);
+            margin-top: 0;
+            transition: color 0.3s;
+        }
+
+        /* 圖表容器 */
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 25px;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        .btn-back {
+            background: #607d8b;
+            color: white;
+            box-shadow: 0 4px #455a64;
+        }
+
+        .btn-back:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px #455a64;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #999;
+            padding: 40px 0;
+            font-size: 1.1em;
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="card">
+        <div class="tabs">
+            <div id="tab-yujie" class="tab active" data-child="yujie" onclick="switchChild('yujie')">俞潔</div>
+            <div id="tab-yingan" class="tab" data-child="yingan" onclick="switchChild('yingan')">盈安</div>
+        </div>
+
+        <h2 id="child-title">俞潔 的點數趨勢</h2>
+
+        <div id="empty-state" class="empty-state">尚無歷史紀錄可供繪圖 📉</div>
+
+        <div class="chart-container" id="chart-wrapper">
+            <canvas id="historyChart"></canvas>
+        </div>
+
+        <button class="btn-back" onclick="location.href='bank.html'">⬅️ 回集點銀行</button>
+    </div>
+
+    <script>
+        let currentChild = 'yujie';
+        const config = {
+            yujie: { name: '俞潔', color: '#00796b', bg: '#e0f2f1', line: '#009688', fill: 'rgba(0, 150, 136, 0.2)' },
+            yingan: { name: '盈安', color: '#673ab7', bg: '#ede7f6', line: '#9c27b0', fill: 'rgba(156, 39, 176, 0.2)' }
+        };
+        let chartInstance = null;
+
+        function switchChild(id) {
+            currentChild = id;
+
+            // 更新 UI 樣式
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.getElementById('tab-' + id).classList.add('active');
+
+            const c = config[id];
+            document.documentElement.style.setProperty('--main-color', c.color);
+            document.documentElement.style.setProperty('--bg-color', c.bg);
+            document.getElementById('child-title').innerText = c.name + " 的點數趨勢";
+            document.getElementById('child-title').style.color = c.color;
+
+            renderChart();
+        }
+
+        function renderChart() {
+            // 從 localStorage 讀取資料
+            let history = JSON.parse(localStorage.getItem(currentChild + '_logs') || "[]");
+
+            const emptyState = document.getElementById('empty-state');
+            const chartWrapper = document.getElementById('chart-wrapper');
+
+            if (history.length === 0) {
+                emptyState.style.display = 'block';
+                chartWrapper.style.display = 'none';
+                return;
+            } else {
+                emptyState.style.display = 'none';
+                chartWrapper.style.display = 'block';
+            }
+
+            // 因為 history 是往前 unshift 的（最新的在最前），圖表通常需要從舊到新（左到右）
+            // 故我們反轉陣列來繪圖
+            const sortedHistory = [...history].reverse();
+
+            // 整理 X 軸與 Y 軸資料
+            const labels = [];
+            const dataPoints = [];
+            let currentBalance = 0;
+
+            sortedHistory.forEach(log => {
+                labels.push(log.date);
+                currentBalance += parseInt(log.remain || 0);
+                dataPoints.push(currentBalance);
+            });
+
+            const c = config[currentChild];
+
+            // 若已有圖表實例，先銷毀才能重繪
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            const ctx = document.getElementById('historyChart').getContext('2d');
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '銀行總餘額',
+                        data: dataPoints,
+                        borderColor: c.line,
+                        backgroundColor: c.fill,
+                        borderWidth: 3,
+                        pointBackgroundColor: c.color,
+                        pointRadius: 5,
+                        pointHoverRadius: 8,
+                        fill: true,
+                        tension: 0.3 // 讓線條稍微平滑
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                label: function (context) {
+                                    return ` 餘額: ${context.parsed.y} 點`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                precision: 0 // 只顯示整數
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    },
+                    interaction: {
+                        mode: 'nearest',
+                        axis: 'x',
+                        intersect: false
+                    }
+                }
+            });
+        }
+
+        // 初始化
+        window.onload = () => {
+            renderChart();
+        };
+    </script>
+
+</body>
+
+</html>
