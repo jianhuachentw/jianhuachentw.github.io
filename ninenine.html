@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/ninenine/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Outfit Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">
+  <title>九九乘法大挑戰 | Multiplication Master</title>
+  <script type="module" crossorigin src="/ninenine/assets/index-C6gtnsA5.js"></script>
+  <link rel="stylesheet" crossorigin href="/ninenine/assets/index-B4oZlO-x.css">
+</head>
+
+<body>
+  <div id="app">
+    <div class="glass-container">
+      <!-- Floating Background Elements -->
+      <div class="circle c2"></div>
+
+      <button id="mute-btn" class="mute-toggle" aria-label="Mute Toggle">
+        <span id="mute-icon">🔊</span>
+      </button>
+
+      <!-- Start Screen -->
+      <div id="start-screen" class="screen active">
+        <h1>九九乘法<br>大挑戰</h1>
+        <p class="subtitle">準備好測試你的算術能力了嗎？</p>
+        <button id="start-btn" class="btn-primary">開始遊戲</button>
+      </div>
+
+      <!-- Game Screen -->
+      <div id="game-screen" class="screen">
+        <div class="hud">
+          <div id="hearts-container" class="hearts-box"></div>
+          <div class="stats-group">
+            <div class="timer-box">⏳ <span id="timer">5</span>s</div>
+            <div class="score-box">✨ <span id="score">0</span></div>
+          </div>
+        </div>
+
+        <div class="question-container">
+          <div class="question">
+            <span id="num1">?</span>
+            <span class="operator">×</span>
+            <span id="num2">?</span>
+          </div>
+        </div>
+        <div id="options-container" class="options-grid">
+          <!-- Options will be generated here -->
+        </div>
+        <p id="feedback-msg" class="feedback"></p>
+      </div>
+
+      <!-- End Screen -->
+      <div id="end-screen" class="screen">
+        <h2>遊戲結束</h2>
+        <div class="final-score">
+          <p>你的得分</p>
+          <span id="final-score-display">0</span>
+        </div>
+        <button id="restart-btn" class="btn-primary">再玩一次</button>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>
