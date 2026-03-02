@@ -2,7 +2,7 @@ import './style.css'
 
 // --- State & Config ---
 const INITIAL_LIVES = 10;
-const SECONDS_PER_QUESTION = 7;
+const SECONDS_PER_QUESTION = 20;
 
 let state = {
   score: 0,
@@ -13,6 +13,16 @@ let state = {
   isPlaying: false,
   isMuted: false
 };
+
+let shopData = {
+  stars: parseInt(localStorage.getItem('ninenine_stars')) || 0,
+  plus5Sec: parseInt(localStorage.getItem('ninenine_plus5')) || 0,
+};
+
+function saveShopData() {
+  localStorage.setItem('ninenine_stars', shopData.stars);
+  localStorage.setItem('ninenine_plus5', shopData.plus5Sec);
+}
 
 // --- AudioManager ---
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -63,7 +73,8 @@ const audio = {
 const screens = {
   start: document.getElementById('start-screen'),
   game: document.getElementById('game-screen'),
-  end: document.getElementById('end-screen')
+  end: document.getElementById('end-screen'),
+  shop: document.getElementById('shop-screen')
 };
 
 const dom = {
@@ -77,7 +88,15 @@ const dom = {
   startBtn: document.getElementById('start-btn'),
   restartBtn: document.getElementById('restart-btn'),
   muteBtn: document.getElementById('mute-btn'),
-  muteIcon: document.getElementById('mute-icon')
+  muteIcon: document.getElementById('mute-icon'),
+  shopBtnStart: document.getElementById('shop-btn-start'),
+  shopBtnEnd: document.getElementById('shop-btn-end'),
+  shopBackBtn: document.getElementById('shop-back-btn'),
+  shopStars: document.getElementById('shop-stars'),
+  buyPlus5Btn: document.getElementById('buy-plus5-btn'),
+  inventoryPlus5: document.getElementById('inventory-plus5'),
+  usePlus5Btn: document.getElementById('use-plus5-btn'),
+  gameInventoryPlus5: document.getElementById('game-inventory-plus5')
 };
 
 // --- Game Logic ---
@@ -86,6 +105,59 @@ function init() {
   dom.startBtn.addEventListener('click', startGame);
   dom.restartBtn.addEventListener('click', startGame);
   dom.muteBtn.addEventListener('click', toggleMute);
+
+  // Shop listeners
+  dom.shopBtnStart.addEventListener('click', openShop);
+  dom.shopBtnEnd.addEventListener('click', openShop);
+  dom.shopBackBtn.addEventListener('click', () => switchScreen('start'));
+  dom.buyPlus5Btn.addEventListener('click', buyPlus5);
+
+  // Game item listener
+  dom.usePlus5Btn.addEventListener('click', usePlus5);
+
+  updateShopUI();
+}
+
+function openShop() {
+  updateShopUI();
+  switchScreen('shop');
+}
+
+function updateShopUI() {
+  dom.shopStars.textContent = shopData.stars;
+  dom.inventoryPlus5.textContent = shopData.plus5Sec;
+  dom.buyPlus5Btn.disabled = shopData.stars < 50;
+}
+
+function buyPlus5() {
+  // Ensure audio context is active
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+
+  if (shopData.stars >= 50) {
+    shopData.stars -= 50;
+    shopData.plus5Sec += 1;
+    saveShopData();
+    updateShopUI();
+    audio.correct();
+  }
+}
+
+function usePlus5() {
+  if (!state.isPlaying || state.timeLeft <= 0) return;
+  if (shopData.plus5Sec > 0) {
+    shopData.plus5Sec -= 1;
+    saveShopData();
+    state.timeLeft += 5; // Add 5 seconds
+    updateHUD();
+    updateGameInventoryUI();
+    audio.correct(); // Provide feedback
+    triggerFeedback(dom.timer.parentElement, 'pulse'); // use parent to avoid moving text randomly
+  }
+}
+
+function updateGameInventoryUI() {
+  dom.gameInventoryPlus5.textContent = shopData.plus5Sec;
+  dom.usePlus5Btn.disabled = shopData.plus5Sec <= 0;
 }
 
 function toggleMute() {
@@ -104,6 +176,7 @@ function startGame() {
   state.timeLeft = SECONDS_PER_QUESTION;
   state.isPlaying = true;
 
+  updateGameInventoryUI();
   updateHUD();
   switchScreen('game');
   generateQuestion();
@@ -150,6 +223,12 @@ function endGame() {
 
   audio.gameOver();
   dom.finalScore.textContent = state.score;
+
+  if (state.score > 0) {
+    shopData.stars += state.score;
+    saveShopData();
+  }
+
   switchScreen('end');
 }
 
