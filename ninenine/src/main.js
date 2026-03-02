@@ -2,7 +2,7 @@ import './style.css'
 
 // --- State & Config ---
 const INITIAL_LIVES = 10;
-const SECONDS_PER_QUESTION = 20;
+const SECONDS_PER_QUESTION = 8;
 
 let state = {
   score: 0,
