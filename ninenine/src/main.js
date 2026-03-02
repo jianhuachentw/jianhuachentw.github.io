@@ -17,11 +17,13 @@ let state = {
 let shopData = {
   stars: parseInt(localStorage.getItem('ninenine_stars')) || 0,
   plus5Sec: parseInt(localStorage.getItem('ninenine_plus5')) || 0,
+  removeWrong: parseInt(localStorage.getItem('ninenine_remove_wrong')) || 0,
 };
 
 function saveShopData() {
   localStorage.setItem('ninenine_stars', shopData.stars);
   localStorage.setItem('ninenine_plus5', shopData.plus5Sec);
+  localStorage.setItem('ninenine_remove_wrong', shopData.removeWrong);
 }
 
 // --- AudioManager ---
@@ -96,7 +98,11 @@ const dom = {
   buyPlus5Btn: document.getElementById('buy-plus5-btn'),
   inventoryPlus5: document.getElementById('inventory-plus5'),
   usePlus5Btn: document.getElementById('use-plus5-btn'),
-  gameInventoryPlus5: document.getElementById('game-inventory-plus5')
+  gameInventoryPlus5: document.getElementById('game-inventory-plus5'),
+  buyRemoveWrongBtn: document.getElementById('buy-remove-wrong-btn'),
+  inventoryRemoveWrong: document.getElementById('inventory-remove-wrong'),
+  useRemoveWrongBtn: document.getElementById('use-remove-wrong-btn'),
+  gameInventoryRemoveWrong: document.getElementById('game-inventory-remove-wrong')
 };
 
 // --- Game Logic ---
@@ -111,9 +117,11 @@ function init() {
   dom.shopBtnEnd.addEventListener('click', openShop);
   dom.shopBackBtn.addEventListener('click', () => switchScreen('start'));
   dom.buyPlus5Btn.addEventListener('click', buyPlus5);
+  dom.buyRemoveWrongBtn.addEventListener('click', buyRemoveWrong);
 
   // Game item listener
   dom.usePlus5Btn.addEventListener('click', usePlus5);
+  dom.useRemoveWrongBtn.addEventListener('click', useRemoveWrong);
 
   updateShopUI();
 }
@@ -126,7 +134,9 @@ function openShop() {
 function updateShopUI() {
   dom.shopStars.textContent = shopData.stars;
   dom.inventoryPlus5.textContent = shopData.plus5Sec;
+  dom.inventoryRemoveWrong.textContent = shopData.removeWrong;
   dom.buyPlus5Btn.disabled = shopData.stars < 50;
+  dom.buyRemoveWrongBtn.disabled = shopData.stars < 30;
 }
 
 function buyPlus5() {
@@ -136,6 +146,18 @@ function buyPlus5() {
   if (shopData.stars >= 50) {
     shopData.stars -= 50;
     shopData.plus5Sec += 1;
+    saveShopData();
+    updateShopUI();
+    audio.correct();
+  }
+}
+
+function buyRemoveWrong() {
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+
+  if (shopData.stars >= 30) {
+    shopData.stars -= 30;
+    shopData.removeWrong += 1;
     saveShopData();
     updateShopUI();
     audio.correct();
@@ -155,9 +177,35 @@ function usePlus5() {
   }
 }
 
+function useRemoveWrong() {
+  if (!state.isPlaying || state.timeLeft <= 0) return;
+  if (shopData.removeWrong > 0) {
+    const optionBtns = Array.from(dom.optionsContainer.children);
+    const wrongBtns = optionBtns.filter(btn => parseInt(btn.textContent) !== state.currentQuestion.ans && btn.style.opacity !== '0');
+
+    // Randomly hide up to 2 wrong answers
+    if (wrongBtns.length > 0) {
+      shopData.removeWrong -= 1;
+      saveShopData();
+      updateGameInventoryUI();
+      audio.correct();
+
+      // Shuffle wrong buttons and hide first 2
+      wrongBtns.sort(() => Math.random() - 0.5);
+      const toRemove = Math.min(2, wrongBtns.length);
+      for (let i = 0; i < toRemove; i++) {
+        wrongBtns[i].style.opacity = '0';
+        wrongBtns[i].style.pointerEvents = 'none';
+      }
+    }
+  }
+}
+
 function updateGameInventoryUI() {
   dom.gameInventoryPlus5.textContent = shopData.plus5Sec;
+  dom.gameInventoryRemoveWrong.textContent = shopData.removeWrong;
   dom.usePlus5Btn.disabled = shopData.plus5Sec <= 0;
+  dom.useRemoveWrongBtn.disabled = shopData.removeWrong <= 0;
 }
 
 function toggleMute() {
@@ -210,11 +258,26 @@ function handleWrongAction(btnElement = null) {
     triggerFeedback(dom.heartsContainer, 'shake');
   }
 
-  if (state.lives <= 0) {
-    endGame();
-  } else {
-    generateQuestion();
+  // Find the correct button to highlight
+  const optionBtns = Array.from(dom.optionsContainer.children);
+  const correctBtn = optionBtns.find(btn => parseInt(btn.textContent) === state.currentQuestion.ans);
+  if (correctBtn) {
+    triggerFeedback(correctBtn, 'pulse');
   }
+
+  // Disable gameplay during delay
+  state.isPlaying = false;
+  if (state.timerInterval) clearInterval(state.timerInterval);
+
+  setTimeout(() => {
+    if (state.lives <= 0) {
+      endGame();
+    } else {
+      state.isPlaying = true;
+      generateQuestion();
+      startTimer();
+    }
+  }, 2000);
 }
 
 function endGame() {
