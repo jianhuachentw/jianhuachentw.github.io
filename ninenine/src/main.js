@@ -18,12 +18,14 @@ let shopData = {
   stars: parseInt(localStorage.getItem('ninenine_stars')) || 0,
   plus5Sec: parseInt(localStorage.getItem('ninenine_plus5')) || 0,
   removeWrong: parseInt(localStorage.getItem('ninenine_remove_wrong')) || 0,
+  healCard: parseInt(localStorage.getItem('ninenine_heal_card')) || 0,
 };
 
 function saveShopData() {
   localStorage.setItem('ninenine_stars', shopData.stars);
   localStorage.setItem('ninenine_plus5', shopData.plus5Sec);
   localStorage.setItem('ninenine_remove_wrong', shopData.removeWrong);
+  localStorage.setItem('ninenine_heal_card', shopData.healCard);
 }
 
 // --- AudioManager ---
@@ -102,7 +104,11 @@ const dom = {
   buyRemoveWrongBtn: document.getElementById('buy-remove-wrong-btn'),
   inventoryRemoveWrong: document.getElementById('inventory-remove-wrong'),
   useRemoveWrongBtn: document.getElementById('use-remove-wrong-btn'),
-  gameInventoryRemoveWrong: document.getElementById('game-inventory-remove-wrong')
+  gameInventoryRemoveWrong: document.getElementById('game-inventory-remove-wrong'),
+  buyHealBtn: document.getElementById('buy-heal-btn'),
+  inventoryHeal: document.getElementById('inventory-heal'),
+  useHealBtn: document.getElementById('use-heal-btn'),
+  gameInventoryHeal: document.getElementById('game-inventory-heal')
 };
 
 // --- Game Logic ---
@@ -118,10 +124,12 @@ function init() {
   dom.shopBackBtn.addEventListener('click', () => switchScreen('start'));
   dom.buyPlus5Btn.addEventListener('click', buyPlus5);
   dom.buyRemoveWrongBtn.addEventListener('click', buyRemoveWrong);
+  dom.buyHealBtn.addEventListener('click', buyHealCard);
 
   // Game item listener
   dom.usePlus5Btn.addEventListener('click', usePlus5);
   dom.useRemoveWrongBtn.addEventListener('click', useRemoveWrong);
+  dom.useHealBtn.addEventListener('click', useHealCard);
 
   updateShopUI();
 }
@@ -135,8 +143,10 @@ function updateShopUI() {
   dom.shopStars.textContent = shopData.stars;
   dom.inventoryPlus5.textContent = shopData.plus5Sec;
   dom.inventoryRemoveWrong.textContent = shopData.removeWrong;
+  dom.inventoryHeal.textContent = shopData.healCard;
   dom.buyPlus5Btn.disabled = shopData.stars < 50;
-  dom.buyRemoveWrongBtn.disabled = shopData.stars < 30;
+  dom.buyRemoveWrongBtn.disabled = shopData.stars < 80;
+  dom.buyHealBtn.disabled = shopData.stars < 100;
 }
 
 function buyPlus5() {
@@ -155,9 +165,21 @@ function buyPlus5() {
 function buyRemoveWrong() {
   if (audioCtx.state === 'suspended') audioCtx.resume();
 
-  if (shopData.stars >= 30) {
-    shopData.stars -= 30;
+  if (shopData.stars >= 80) {
+    shopData.stars -= 80;
     shopData.removeWrong += 1;
+    saveShopData();
+    updateShopUI();
+    audio.correct();
+  }
+}
+
+function buyHealCard() {
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+
+  if (shopData.stars >= 100) {
+    shopData.stars -= 100;
+    shopData.healCard += 1;
     saveShopData();
     updateShopUI();
     audio.correct();
@@ -201,11 +223,26 @@ function useRemoveWrong() {
   }
 }
 
+function useHealCard() {
+  if (!state.isPlaying || state.timeLeft <= 0) return;
+  if (shopData.healCard > 0 && state.lives < INITIAL_LIVES) {
+    shopData.healCard -= 1;
+    saveShopData();
+    state.lives += 1;
+    updateHUD();
+    updateGameInventoryUI();
+    audio.correct(); // Provide feedback
+    triggerFeedback(dom.heartsContainer, 'pulse');
+  }
+}
+
 function updateGameInventoryUI() {
   dom.gameInventoryPlus5.textContent = shopData.plus5Sec;
   dom.gameInventoryRemoveWrong.textContent = shopData.removeWrong;
+  dom.gameInventoryHeal.textContent = shopData.healCard;
   dom.usePlus5Btn.disabled = shopData.plus5Sec <= 0;
   dom.useRemoveWrongBtn.disabled = shopData.removeWrong <= 0;
+  dom.useHealBtn.disabled = shopData.healCard <= 0 || state.lives >= INITIAL_LIVES;
 }
 
 function toggleMute() {
@@ -262,7 +299,7 @@ function handleWrongAction(btnElement = null) {
   const optionBtns = Array.from(dom.optionsContainer.children);
   const correctBtn = optionBtns.find(btn => parseInt(btn.textContent) === state.currentQuestion.ans);
   if (correctBtn) {
-    triggerFeedback(correctBtn, 'pulse');
+    correctBtn.classList.add('correct-highlight');
   }
 
   // Disable gameplay during delay
@@ -270,6 +307,9 @@ function handleWrongAction(btnElement = null) {
   if (state.timerInterval) clearInterval(state.timerInterval);
 
   setTimeout(() => {
+    if (correctBtn) {
+      correctBtn.classList.remove('correct-highlight');
+    }
     if (state.lives <= 0) {
       endGame();
     } else {
