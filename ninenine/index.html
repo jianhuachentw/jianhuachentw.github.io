@@ -27,6 +27,24 @@
         <h1>九九乘法<br>大挑戰</h1>
         <p class="subtitle">準備好測試你的算術能力了嗎？</p>
         <button id="start-btn" class="btn-primary">開始遊戲</button>
+        <button id="shop-btn-start" class="btn-secondary">前往商店</button>
+      </div>
+
+      <!-- Shop Screen -->
+      <div id="shop-screen" class="screen">
+        <h2>商店</h2>
+        <div class="stars-display">
+          <span>⭐</span> <span id="shop-stars">0</span>
+        </div>
+        <div class="shop-items">
+          <div class="shop-item">
+            <h3>+5 秒卡</h3>
+            <p>在遊戲中延長 5 秒時間</p>
+            <button id="buy-plus5-btn" class="buy-btn">50 ⭐ 購買</button>
+            <p class="inventory-hint">擁有: <span id="inventory-plus5">0</span></p>
+          </div>
+        </div>
+        <button id="shop-back-btn" class="btn-secondary">返回</button>
       </div>
 
       <!-- Game Screen -->
@@ -36,6 +54,11 @@
           <div class="stats-group">
             <div class="timer-box">⏳ <span id="timer">5</span>s</div>
             <div class="score-box">✨ <span id="score">0</span></div>
+          </div>
+          <div class="item-bar">
+            <button id="use-plus5-btn" class="item-btn" title="使用 +5 秒卡">
+              +5s <span class="badge" id="game-inventory-plus5">0</span>
+            </button>
           </div>
         </div>
 
@@ -60,6 +83,7 @@
           <span id="final-score-display">0</span>
         </div>
         <button id="restart-btn" class="btn-primary">再玩一次</button>
+        <button id="shop-btn-end" class="btn-secondary">前往商店</button>
       </div>
     </div>
   </div>
