@@ -10,8 +10,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">
   <title>九九乘法大挑戰 | Multiplication Master</title>
-  <script type="module" crossorigin src="/ninenine/assets/index-BeIIVPJl.js"></script>
-  <link rel="stylesheet" crossorigin href="/ninenine/assets/index-BdbBL7B6.css">
+  <script type="module" crossorigin src="/ninenine/assets/index-ygCqO4Jv.js"></script>
+  <link rel="stylesheet" crossorigin href="/ninenine/assets/index-C1LjymzV.css">
 </head>
 
 <body>
@@ -48,8 +48,14 @@
           <div class="shop-item">
             <h3>刪去卡</h3>
             <p>刪除兩個錯誤答案</p>
-            <button id="buy-remove-wrong-btn" class="buy-btn">30 ⭐ 購買</button>
+            <button id="buy-remove-wrong-btn" class="buy-btn">80 ⭐ 購買</button>
             <p class="inventory-hint">擁有: <span id="inventory-remove-wrong">0</span></p>
+          </div>
+          <div class="shop-item">
+            <h3>回血卡</h3>
+            <p>恢復一顆愛心</p>
+            <button id="buy-heal-btn" class="buy-btn">100 ⭐ 購買</button>
+            <p class="inventory-hint">擁有: <span id="inventory-heal">0</span></p>
           </div>
         </div>
         <button id="shop-back-btn" class="btn-secondary">返回</button>
@@ -60,7 +66,7 @@
         <div class="hud">
           <div id="hearts-container" class="hearts-box"></div>
           <div class="stats-group">
-            <div class="timer-box">⏳ <span id="timer">5</span>s</div>
+            <div class="timer-box">⏳ <span id="timer">8</span>s</div>
             <div class="score-box">✨ <span id="score">0</span></div>
           </div>
           <div class="item-bar">
@@ -69,6 +75,9 @@
             </button>
             <button id="use-remove-wrong-btn" class="item-btn" title="使用 刪去卡">
               刪去 <span class="badge" id="game-inventory-remove-wrong">0</span>
+            </button>
+            <button id="use-heal-btn" class="item-btn" title="使用 回血卡">
+              回血 <span class="badge" id="game-inventory-heal">0</span>
             </button>
           </div>
         </div>

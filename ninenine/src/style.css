@@ -283,6 +283,14 @@ h1 {
 }
 
 /* Feedback Animations */
+.correct-highlight {
+  background: var(--success-color) !important;
+  color: white !important;
+  border-color: white !important;
+  box-shadow: 0 0 15px var(--success-color);
+  transform: scale(1.05);
+}
+
 .shake {
   animation: shake 0.4s cubic-bezier(.36, .07, .19, .97) both;
   border-color: var(--error-color) !important;
