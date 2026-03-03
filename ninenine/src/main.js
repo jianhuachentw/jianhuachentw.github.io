@@ -32,9 +32,9 @@ const avatarCatalog = {
   ],
   eyes: [
     { id: 'eyes_0', emoji: '👀', name: '基本眼', price: 0 },
-    { id: 'eyes_1', emoji: '😎', name: '墨鏡', price: 80 },
-    { id: 'eyes_2', emoji: '🤩', name: '星星眼', price: 150 },
-    { id: 'eyes_3', emoji: '🥺', name: '水汪汪', price: 200 }
+    { id: 'eyes_1', emoji: '🕶️', name: '墨鏡', price: 80 },
+    { id: 'eyes_2', emoji: '✨', name: '星星眼', price: 150 },
+    { id: 'eyes_3', emoji: '💧', name: '水汪汪', price: 200 }
   ],
   nose: [
     { id: 'nose_0', emoji: '👃', name: '基本鼻', price: 0 },
@@ -45,7 +45,7 @@ const avatarCatalog = {
     { id: 'mouth_0', emoji: '👄', name: '基本嘴', price: 0 },
     { id: 'mouth_1', emoji: '👅', name: '吐舌', price: 50 },
     { id: 'mouth_2', emoji: '💋', name: '烈焰紅唇', price: 100 },
-    { id: 'mouth_3', emoji: '😁', name: '大笑', price: 150 }
+    { id: 'mouth_3', emoji: 'O', name: '大笑', price: 150 }
   ],
   accessory: [
     { id: 'acc_1', emoji: '🎀', name: '蝴蝶結', price: 150 },
@@ -127,10 +127,12 @@ const dom = {
   finalScore: document.getElementById('final-score-display'),
   startBtn: document.getElementById('start-btn'),
   restartBtn: document.getElementById('restart-btn'),
+  endGameBtn: document.getElementById('end-game-btn'),
   muteBtn: document.getElementById('mute-btn'),
   muteIcon: document.getElementById('mute-icon'),
   shopBtnStart: document.getElementById('shop-btn-start'),
   shopBtnEnd: document.getElementById('shop-btn-end'),
+  avatarShopBtnEnd: document.getElementById('avatar-shop-btn-end'),
   shopBackBtn: document.getElementById('shop-back-btn'),
   shopStars: document.getElementById('shop-stars'),
   buyPlus5Btn: document.getElementById('buy-plus5-btn'),
@@ -160,6 +162,7 @@ const dom = {
 function init() {
   dom.startBtn.addEventListener('click', startGame);
   dom.restartBtn.addEventListener('click', startGame);
+  dom.endGameBtn.addEventListener('click', endGame);
   dom.muteBtn.addEventListener('click', toggleMute);
 
   // Shop listeners
@@ -177,6 +180,7 @@ function init() {
 
   // Avatar listeners
   dom.avatarShopBtn.addEventListener('click', openAvatarShop);
+  dom.avatarShopBtnEnd.addEventListener('click', openAvatarShop);
   dom.avatarShopBackBtn.addEventListener('click', () => {
     switchScreen('start');
     renderAvatar(dom.mainAvatar); // Re-render main menu avatar when leaving shop
