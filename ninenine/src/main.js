@@ -411,6 +411,7 @@ function updateHUD() {
   dom.timer.textContent = state.timeLeft;
   dom.score.textContent = state.score;
   renderHearts();
+  updateGameInventoryUI();
 }
 
 function renderHearts() {
