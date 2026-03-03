@@ -25,14 +25,55 @@
       <!-- Start Screen -->
       <div id="start-screen" class="screen active">
         <h1>九九乘法<br>大挑戰</h1>
+
+        <!-- Avatar Display Container -->
+        <div class="avatar-display-box">
+          <div id="main-avatar" class="avatar-container">
+            <!-- Avatar parts injected here -->
+          </div>
+          <button id="avatar-shop-btn" class="btn-secondary btn-small mt-2">✨ 裝扮阿凡達</button>
+        </div>
+
         <p class="subtitle">準備好測試你的算術能力了嗎？</p>
         <button id="start-btn" class="btn-primary">開始遊戲</button>
-        <button id="shop-btn-start" class="btn-secondary">前往商店</button>
+        <button id="shop-btn-start" class="btn-secondary mt-2">前往道具商店</button>
+      </div>
+
+      <!-- Avatar Shop Screen -->
+      <div id="avatar-shop-screen" class="screen">
+        <h2>裝扮阿凡達</h2>
+        <div class="stars-display">
+          <span>⭐</span> <span id="avatar-shop-stars">0</span>
+        </div>
+
+        <div class="avatar-shop-layout">
+          <!-- Preview Area -->
+          <div class="avatar-preview-box">
+            <div id="preview-avatar" class="avatar-container">
+              <!-- Avatar parts injected here -->
+            </div>
+          </div>
+
+          <!-- Shop Area -->
+          <div class="avatar-shop-panel">
+            <div class="avatar-tabs">
+              <button class="avatar-tab active" data-category="hair">頭髮</button>
+              <button class="avatar-tab" data-category="eyes">眼睛</button>
+              <button class="avatar-tab" data-category="nose">鼻子</button>
+              <button class="avatar-tab" data-category="mouth">嘴巴</button>
+              <button class="avatar-tab" data-category="accessory">配件</button>
+            </div>
+            <div id="avatar-items-grid" class="avatar-grid">
+              <!-- Items injected here via JS -->
+            </div>
+          </div>
+        </div>
+        <button id="avatar-shop-back-btn" class="btn-secondary mt-2">返回</button>
       </div>
 
       <!-- Shop Screen -->
       <div id="shop-screen" class="screen">
-        <h2>商店</h2>
+        <h2>道具商店</h2>
         <div class="stars-display">
           <span>⭐</span> <span id="shop-stars">0</span>
         </div>
@@ -56,7 +97,7 @@
             <p class="inventory-hint">擁有: <span id="inventory-heal">0</span></p>
           </div>
         </div>
-        <button id="shop-back-btn" class="btn-secondary">返回</button>
+        <button id="shop-back-btn" class="btn-secondary mt-2">返回</button>
       </div>
 
       <!-- Game Screen -->

@@ -485,3 +485,262 @@ h1 {
   top: -10px;
   right: -10px;
 }
+
+/* Avatar System */
+.avatar-display-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 1.5rem 0;
+  gap: 0.5rem;
+}
+
+.avatar-container {
+  position: relative;
+  width: 100px;
+  height: 100px;
+  background-color: #ffe0bd;
+  /* Base skin color */
+  border-radius: 50%;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  border: 3px solid rgba(255, 255, 255, 0.5);
+  transition: transform 0.3s ease;
+}
+
+.avatar-container:hover {
+  transform: scale(1.05);
+}
+
+.avatar-part {
+  position: absolute;
+  font-size: 3rem;
+  /* Default emoji size */
+  pointer-events: none;
+  /* Let clicks pass through if needed */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+/* Base Part Positioning (Adjust as needed based on emojis) */
+.avatar-part[data-type="hair"] {
+  top: -20%;
+  font-size: 4rem;
+}
+
+.avatar-part[data-type="eyes"] {
+  top: -10%;
+}
+
+.avatar-part[data-type="nose"] {
+  top: 10%;
+  font-size: 2rem;
+}
+
+.avatar-part[data-type="mouth"] {
+  top: 25%;
+  font-size: 2.5rem;
+}
+
+.avatar-part[data-type="accessory"] {
+  top: -15%;
+  font-size: 3.5rem;
+}
+
+/* Avatar Shop Layout */
+.avatar-shop-layout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.avatar-preview-box {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 1.5rem;
+  border-radius: 20px;
+  border: 1px solid var(--glass-border);
+}
+
+.avatar-preview-box .avatar-container {
+  width: 150px;
+  height: 150px;
+}
+
+.avatar-preview-box .avatar-part {
+  font-size: 4.5rem;
+}
+
+.avatar-preview-box .avatar-part[data-type="hair"] {
+  top: -20%;
+  font-size: 6rem;
+}
+
+.avatar-preview-box .avatar-part[data-type="eyes"] {
+  top: -10%;
+}
+
+.avatar-preview-box .avatar-part[data-type="nose"] {
+  top: 10%;
+  font-size: 3rem;
+}
+
+.avatar-preview-box .avatar-part[data-type="mouth"] {
+  top: 25%;
+  font-size: 3.5rem;
+}
+
+.avatar-preview-box .avatar-part[data-type="accessory"] {
+  top: -15%;
+  font-size: 5rem;
+}
+
+.avatar-shop-panel {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 16px;
+  padding: 1rem;
+}
+
+.avatar-tabs {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+  padding-bottom: 0.5rem;
+}
+
+.avatar-tab {
+  background: transparent;
+  border: none;
+  color: white;
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: 20px;
+  transition: all 0.2s ease;
+  opacity: 0.7;
+}
+
+.avatar-tab:hover {
+  background: rgba(255, 255, 255, 0.1);
+  opacity: 1;
+}
+
+.avatar-tab.active {
+  background: var(--accent-color);
+  color: #333;
+  opacity: 1;
+}
+
+.avatar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 1rem;
+  max-height: 250px;
+  overflow-y: auto;
+  padding: 0.5rem;
+}
+
+/* Custom Scrollbar for Grid */
+.avatar-grid::-webkit-scrollbar {
+  width: 8px;
+}
+
+.avatar-grid::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.avatar-grid::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+}
+
+.avatar-item-card {
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid transparent;
+  border-radius: 12px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.avatar-item-card:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.avatar-item-card.equipped {
+  border-color: var(--success-color);
+  background: rgba(46, 204, 113, 0.2);
+}
+
+.avatar-item-preview {
+  font-size: 2.5rem;
+  height: 50px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.avatar-item-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.avatar-item-price {
+  font-size: 0.8rem;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 0.2rem 0.6rem;
+  border-radius: 10px;
+}
+
+.avatar-item-action {
+  font-size: 0.8rem;
+  padding: 0.3rem 0.8rem;
+  border-radius: 10px;
+  border: none;
+  font-weight: bold;
+  cursor: pointer;
+  background: var(--accent-color);
+  color: #333;
+  width: 100%;
+}
+
+.avatar-item-action.equip-btn {
+  background: var(--success-color);
+  color: white;
+}
+
+.avatar-item-action.unequip-btn {
+  background: #ff6b6b;
+  color: white;
+}
+
+.btn-small {
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+}
+
+.mt-2 {
+  margin-top: 1rem;
+}
