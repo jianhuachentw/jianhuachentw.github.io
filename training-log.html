@@ -1,0 +1,2224 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>訓練日誌 · Garmin Connect</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"
+    crossorigin="anonymous"
+    onerror="console.error('⚠️ Chart.js CDN 載入失敗，圖表功能不可用');window._chartJsFailed=true;"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"
+    crossorigin="anonymous">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"
+    crossorigin="anonymous"
+    onerror="console.warn('⚠️ Leaflet CDN 載入失敗，地圖功能不可用');window._leafletFailed=true;"></script>
+  <style>
+    :root {
+      --bg: #0a0c10;
+      --surface: #13161e;
+      --card: #1a1f2e;
+      --card-hover: #1f2638;
+      --border: #2a3044;
+      --border-subtle: #1e2333;
+      --text-primary: #e8edf5;
+      --text-secondary: #8892a4;
+      --text-muted: #4a5568;
+      --sleep-color: #a78bfa;
+      --hrv-color: #22d3ee;
+      --rhr-color: #f87171;
+      --bb-color: #fbbf24;
+      --tr-color: #34d399;
+      --accent: #3b82f6;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', 'PingFang TC', sans-serif;
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+
+    /* ── Loading ── */
+    #loading {
+      position: fixed; inset: 0;
+      background: var(--bg);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 20px; z-index: 100;
+      transition: opacity 0.4s ease;
+    }
+    #loading.hidden { opacity: 0; pointer-events: none; }
+    .loader-ring {
+      width: 48px; height: 48px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loader-text { color: var(--text-secondary); font-size: 14px; }
+
+    /* ── Layout ── */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+
+    /* ── Header ── */
+    header {
+      background: linear-gradient(180deg, #0d1520 0%, var(--bg) 100%);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 28px 0 24px;
+      margin-bottom: 32px;
+    }
+    .header-inner {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .header-brand {
+      display: flex; align-items: center; gap: 12px;
+    }
+    .brand-icon {
+      width: 40px; height: 40px;
+      background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+    }
+    .brand-title {
+      font-size: 22px; font-weight: 700;
+      letter-spacing: -0.3px;
+      color: var(--text-primary);
+    }
+    .brand-subtitle {
+      font-size: 12px; color: var(--text-secondary);
+      margin-top: 2px;
+    }
+    .header-meta {
+      text-align: right;
+    }
+    .header-date {
+      font-size: 13px; color: var(--text-secondary);
+    }
+    #data-range {
+      font-size: 12px; color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* ── Hero metrics ── */
+    .hero-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+    @media (max-width: 900px) {
+      .hero-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 560px) {
+      .hero-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    .hero-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 16px;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .hero-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--card-accent, #3b82f6);
+    }
+    .hero-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--border);
+    }
+    .hero-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+    .hero-value {
+      font-size: 36px;
+      font-weight: 700;
+      line-height: 1;
+      color: var(--card-accent, var(--text-primary));
+      font-variant-numeric: tabular-nums;
+    }
+    .hero-unit {
+      font-size: 14px;
+      font-weight: 400;
+      color: var(--text-secondary);
+      margin-left: 3px;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      margin-top: 8px;
+      padding: 3px 8px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      background: color-mix(in srgb, var(--card-accent) 15%, transparent);
+      color: var(--card-accent, var(--text-secondary));
+    }
+
+    /* ── Section title ── */
+    .section-title {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border-subtle);
+    }
+
+    /* ── Charts grid ── */
+    .charts-section { margin-bottom: 40px; }
+    .charts-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+    @media (max-width: 700px) {
+      .charts-grid { grid-template-columns: 1fr; }
+    }
+    .chart-full { grid-column: 1 / -1; }
+
+    .chart-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+    .chart-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .chart-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .chart-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+    }
+    .chart-stat {
+      text-align: right;
+    }
+    .chart-stat-value {
+      font-size: 22px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .chart-stat-label {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .chart-wrap {
+      position: relative;
+      height: 200px;
+    }
+    canvas {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    /* ── Daily cards ── */
+    .cards-section { margin-bottom: 60px; }
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 12px;
+    }
+    @media (max-width: 480px) {
+      .cards-grid { grid-template-columns: 1fr; }
+    }
+
+    .day-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .day-card:hover {
+      background: var(--card-hover);
+      border-color: #3a4460;
+    }
+    .day-card.today {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 1px rgba(59,130,246,0.15), 0 4px 16px rgba(59,130,246,0.08);
+    }
+
+    .day-header {
+      display: flex; align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .day-date {
+      font-size: 15px; font-weight: 700;
+      color: var(--text-primary);
+    }
+    .day-weekday {
+      font-size: 12px; color: var(--text-secondary);
+      margin-top: 1px;
+    }
+    .today-badge {
+      font-size: 11px; font-weight: 600;
+      padding: 3px 8px; border-radius: 20px;
+      background: rgba(59,130,246,0.15);
+      color: #60a5fa;
+    }
+
+    .day-metrics {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .metric-cell {
+      text-align: center;
+    }
+    .metric-cell-value {
+      font-size: 18px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.1;
+    }
+    .metric-cell-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .metric-null { color: var(--text-muted); font-size: 14px; }
+
+    .sleep-bar {
+      display: flex;
+      height: 6px;
+      border-radius: 3px;
+      overflow: hidden;
+      gap: 1px;
+      margin-bottom: 10px;
+      background: var(--border-subtle);
+    }
+    .sleep-seg {
+      height: 100%;
+      border-radius: 2px;
+    }
+    .sleep-seg.deep { background: #818cf8; }
+    .sleep-seg.rem  { background: #a78bfa; }
+    .sleep-seg.light{ background: #c4b5fd; }
+
+    .day-activities {
+      display: flex; flex-wrap: wrap; gap: 6px;
+    }
+    .activity-tag {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 8px; border-radius: 20px;
+      font-size: 11px; font-weight: 500;
+      background: rgba(59,130,246,0.12);
+      color: #93c5fd;
+      border: 1px solid rgba(59,130,246,0.2);
+    }
+
+    /* score color helpers */
+    .score-excellent { color: #34d399; }
+    .score-good      { color: #a3e635; }
+    .score-fair      { color: #fbbf24; }
+    .score-poor      { color: #f87171; }
+
+    /* ── Clickable day card ── */
+    .day-card {
+      cursor: pointer;
+    }
+    .day-card .card-hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 10px;
+      text-align: right;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .day-card:hover .card-hint { opacity: 1; }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.65);
+      backdrop-filter: blur(4px);
+      z-index: 200;
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+    .modal-overlay.open {
+      opacity: 1; pointer-events: auto;
+    }
+    .modal {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 600px;
+      max-height: 80vh;
+      overflow-y: auto;
+      transform: translateY(16px) scale(0.98);
+      transition: transform 0.25s ease;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+    .modal-overlay.open .modal {
+      transform: translateY(0) scale(1);
+    }
+    .modal-header {
+      display: flex; align-items: flex-start;
+      justify-content: space-between;
+      padding: 20px 20px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+      position: sticky; top: 0;
+      background: var(--card);
+      z-index: 1;
+    }
+    .modal-title {
+      font-size: 16px; font-weight: 700;
+      color: var(--text-primary);
+    }
+    .modal-subtitle {
+      font-size: 12px; color: var(--text-secondary);
+      margin-top: 3px;
+    }
+    .modal-close {
+      background: none; border: none;
+      color: var(--text-muted);
+      font-size: 22px; line-height: 1;
+      cursor: pointer; padding: 0 4px;
+      transition: color 0.15s;
+    }
+    .modal-close:hover { color: var(--text-primary); }
+    .modal-body { padding: 16px 20px 20px; }
+    .modal-empty {
+      text-align: center;
+      padding: 32px 0;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    /* Activity detail card inside modal */
+    .act-card {
+      background: var(--surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      margin-bottom: 10px;
+    }
+    .act-card:last-child { margin-bottom: 0; }
+    .act-card-header {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 12px;
+    }
+    .act-icon {
+      font-size: 22px; line-height: 1;
+      width: 36px; height: 36px;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(59,130,246,0.1);
+      border-radius: 8px;
+      flex-shrink: 0;
+    }
+    .act-name {
+      font-size: 14px; font-weight: 600;
+      color: var(--text-primary);
+    }
+    .act-time {
+      font-size: 12px; color: var(--text-secondary);
+      margin-top: 2px;
+    }
+    .act-stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .act-stat {
+      text-align: center;
+      background: rgba(255,255,255,0.03);
+      border-radius: 6px;
+      padding: 8px 4px;
+    }
+    .act-stat-value {
+      font-size: 15px; font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-primary);
+      line-height: 1.2;
+    }
+    .act-stat-label {
+      font-size: 10px; color: var(--text-muted);
+      margin-top: 3px;
+    }
+
+    /* ── Zone charts ── */
+    .zone-section {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border-subtle);
+    }
+    .zone-section-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .zone-section-title .zone-icon { font-size: 13px; }
+    .zone-stacked {
+      display: flex;
+      height: 8px;
+      border-radius: 4px;
+      overflow: hidden;
+      gap: 2px;
+      margin-bottom: 12px;
+      background: var(--border-subtle);
+    }
+    .zone-stacked-seg {
+      height: 100%;
+      border-radius: 2px;
+      transition: opacity 0.2s;
+      min-width: 2px;
+    }
+    .zone-rows { display: flex; flex-direction: column; gap: 6px; }
+    .zone-row {
+      display: grid;
+      grid-template-columns: 80px 1fr 48px 36px;
+      align-items: center;
+      gap: 8px;
+    }
+    .zone-label {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+    .zone-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .zone-bar-track {
+      background: rgba(255,255,255,0.05);
+      border-radius: 3px;
+      height: 6px;
+      overflow: hidden;
+    }
+    .zone-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.5s ease;
+    }
+    .zone-time {
+      font-size: 11px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-secondary);
+      text-align: right;
+    }
+    .zone-pct {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-align: right;
+    }
+    .zone-empty {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 10px 0;
+      font-style: italic;
+    }
+
+    /* ── Laps Table ── */
+    .laps-section { margin-top: 16px; border-top: 1px dashed var(--border); padding-top: 16px; }
+    .laps-table-wrapper { overflow-x: auto; margin-top: 8px; border-radius: 8px; border: 1px solid var(--border-subtle); }
+    .laps-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
+    .laps-table th { background: var(--surface); color: var(--text-secondary); font-weight: 500; padding: 8px 12px; }
+    .laps-table td { padding: 8px 12px; border-top: 1px solid var(--border-subtle); color: var(--text-primary); }
+    .laps-table tr:hover { background: var(--card-hover); }
+
+    /* Zone color palette (Garmin style) */
+    .zc1 { background: #9ca3af; }  /* Z1 gray */
+    .zc2 { background: #3b82f6; }  /* Z2 blue */
+    .zc3 { background: #22c55e; }  /* Z3 green */
+    .zc4 { background: #f97316; }  /* Z4 orange */
+    .zc5 { background: #ef4444; }  /* Z5 red */
+
+    /* ── Modal wider for zones ── */
+    .modal { max-width: 600px; }
+
+    /* ── Empty state ── */
+    .empty-state {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 48px;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    /* ── Stats Panel ── */
+    .stats-section { margin-bottom: 40px; }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr) 1.8fr;
+      gap: 16px;
+      align-items: stretch;
+    }
+    @media (max-width: 860px) {
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 480px) {
+      .stats-grid { grid-template-columns: 1fr; }
+    }
+    .stat-box {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    .stat-box::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--sb-accent, var(--accent));
+    }
+    .stat-box-icon {
+      font-size: 20px; margin-bottom: 10px; display: block;
+    }
+    .stat-box-value {
+      font-size: 32px; font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+      color: var(--sb-accent, var(--text-primary));
+    }
+    .stat-box-unit {
+      font-size: 13px; font-weight: 400;
+      color: var(--text-secondary);
+      margin-left: 3px;
+    }
+    .stat-box-label {
+      font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.7px;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+    .stat-box-sub {
+      font-size: 11px; color: var(--text-muted);
+      margin-top: 4px;
+    }
+    .pie-box {
+      display: flex; flex-direction: column;
+    }
+    .pie-box .chart-title {
+      font-size: 14px; font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+    }
+    .pie-wrap {
+      flex: 1;
+      display: flex; align-items: center; gap: 16px;
+    }
+    .pie-canvas-wrap {
+      width: 120px; height: 120px; flex-shrink: 0;
+    }
+    .pie-legend {
+      flex: 1;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .pie-legend-item {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 12px; color: var(--text-secondary);
+    }
+    .pie-legend-dot {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    }
+    .pie-legend-name { flex: 1; }
+    .pie-legend-count {
+      font-weight: 600; color: var(--text-primary);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ── Scatter Chart ── */
+    .scatter-section { margin-bottom: 40px; }
+    .chart-wrap-tall { height: 220px; position: relative; }
+
+    /* ── Search & Filter Bar ── */
+    .filter-bar {
+      display: flex; flex-wrap: wrap; gap: 10px;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .search-input-wrap {
+      position: relative; flex: 1; min-width: 200px;
+    }
+    .search-icon {
+      position: absolute; left: 12px; top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted); font-size: 14px;
+      pointer-events: none;
+    }
+    .search-input {
+      width: 100%;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-size: 13px;
+      padding: 8px 12px 8px 36px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .search-input::placeholder { color: var(--text-muted); }
+    .search-input:focus { border-color: var(--accent); }
+
+    .filter-chips {
+      display: flex; flex-wrap: wrap; gap: 6px;
+    }
+    .filter-chip {
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px; font-weight: 500;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+      user-select: none;
+    }
+    .filter-chip:hover {
+      border-color: #3a4460;
+      color: var(--text-primary);
+    }
+    .filter-chip.active {
+      background: rgba(59,130,246,0.15);
+      border-color: rgba(59,130,246,0.35);
+      color: #93c5fd;
+    }
+    .cards-count {
+      font-size: 12px; color: var(--text-muted);
+      white-space: nowrap; align-self: center;
+    }
+
+    /* ── Leaflet Map ── */
+    .map-section {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border-subtle);
+    }
+    .map-section .zone-section-title { margin-bottom: 10px; }
+    #activity-map {
+      width: 100%;
+      height: 240px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-subtle);
+      position: relative;
+      z-index: 0;
+    }
+    /* Dynamic map containers generated by buildActCard */
+    [id^="map-"] {
+      position: relative !important;
+      z-index: 0 !important;
+      min-height: 240px;
+    }
+    /* Leaflet dark overrides */
+    .leaflet-container {
+      background: #0d1117 !important;
+      font-family: inherit;
+    }
+    .leaflet-tile-pane { filter: brightness(0.85) saturate(0.7); }
+    .leaflet-control-attribution {
+      background: rgba(10,12,16,0.8) !important;
+      color: var(--text-muted) !important;
+      font-size: 9px !important;
+    }
+    .leaflet-control-attribution a { color: var(--text-muted) !important; }
+    /* Prevent modal stacking context from clipping Leaflet panes on mobile */
+    .leaflet-pane,
+    .leaflet-top,
+    .leaflet-bottom {
+      z-index: auto;
+    }
+    .leaflet-tile-pane    { z-index: 2; }
+    .leaflet-overlay-pane { z-index: 4; }
+    .leaflet-shadow-pane  { z-index: 5; }
+    .leaflet-marker-pane  { z-index: 6; }
+    .leaflet-tooltip-pane { z-index: 7; }
+    .leaflet-popup-pane   { z-index: 8; }
+    .leaflet-top, .leaflet-bottom { z-index: 9; }
+    /* Map error message */
+    .map-error {
+      display: flex; align-items: center; justify-content: center;
+      height: 100%; min-height: 240px;
+      color: #f87171; font-size: 13px; text-align: center;
+      padding: 16px; background: #1a1f2e;
+      border-radius: 8px;
+    }
+    @media (max-width: 480px) {
+      [id^="map-"], #activity-map { min-height: 240px; height: 240px; }
+    }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border-subtle);
+      padding: 20px 0;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 12px;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="loader-ring"></div>
+  <div class="loader-text">載入訓練資料中…</div>
+</div>
+
+<header>
+  <div class="container">
+    <div class="header-inner">
+      <div class="header-brand">
+        <div class="brand-icon">🏃</div>
+        <div>
+          <div class="brand-title">訓練日誌</div>
+          <div class="brand-subtitle">Garmin Connect · 個人健康數據</div>
+        </div>
+      </div>
+      <div class="header-meta">
+        <div class="header-date" id="today-label">—</div>
+        <div id="data-range">載入中…</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+
+  <!-- Hero metrics -->
+  <div class="section-title">今日狀態</div>
+  <div class="hero-grid" id="hero-grid">
+    <!-- filled by JS -->
+  </div>
+
+  <!-- Trend charts -->
+  <div class="charts-section">
+    <div class="section-title">30 天趨勢</div>
+    <div class="charts-grid">
+
+      <!-- Sleep score -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-title">
+            <span class="chart-dot" style="background:#a78bfa"></span>睡眠分數
+          </div>
+          <div class="chart-stat">
+            <div class="chart-stat-value" id="stat-sleep" style="color:#a78bfa">—</div>
+            <div class="chart-stat-label">最新 / 100</div>
+          </div>
+        </div>
+        <div class="chart-wrap"><canvas id="chart-sleep"></canvas></div>
+      </div>
+
+      <!-- HRV -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-title">
+            <span class="chart-dot" style="background:#22d3ee"></span>心率變異 HRV
+          </div>
+          <div class="chart-stat">
+            <div class="chart-stat-value" id="stat-hrv" style="color:#22d3ee">—</div>
+            <div class="chart-stat-label">最新 ms</div>
+          </div>
+        </div>
+        <div class="chart-wrap"><canvas id="chart-hrv"></canvas></div>
+      </div>
+
+      <!-- Resting HR -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-title">
+            <span class="chart-dot" style="background:#f87171"></span>靜止心率
+          </div>
+          <div class="chart-stat">
+            <div class="chart-stat-value" id="stat-rhr" style="color:#f87171">—</div>
+            <div class="chart-stat-label">最新 bpm</div>
+          </div>
+        </div>
+        <div class="chart-wrap"><canvas id="chart-rhr"></canvas></div>
+      </div>
+
+      <!-- Body Battery -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-title">
+            <span class="chart-dot" style="background:#fbbf24"></span>身體電量
+          </div>
+          <div class="chart-stat">
+            <div class="chart-stat-value" id="stat-bb" style="color:#fbbf24">—</div>
+            <div class="chart-stat-label">最新 / 100</div>
+          </div>
+        </div>
+        <div class="chart-wrap"><canvas id="chart-bb"></canvas></div>
+      </div>
+
+      <!-- Training Readiness – full width -->
+      <div class="chart-card chart-full">
+        <div class="chart-header">
+          <div class="chart-title">
+            <span class="chart-dot" style="background:#34d399"></span>訓練準備度
+          </div>
+          <div class="chart-stat">
+            <div class="chart-stat-value" id="stat-tr" style="color:#34d399">—</div>
+            <div class="chart-stat-label">最新 / 100</div>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height:140px"><canvas id="chart-tr"></canvas></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Stats Panel -->
+  <div class="stats-section">
+    <div class="section-title">本月統計</div>
+    <div class="stats-grid" id="stats-grid">
+      <div class="stat-box" style="--sb-accent:#3b82f6">
+        <span class="stat-box-icon">🏃</span>
+        <div class="stat-box-value" id="stat-monthly-km">—<span class="stat-box-unit">km</span></div>
+        <div class="stat-box-label">累計跑步里程</div>
+        <div class="stat-box-sub" id="stat-monthly-km-sub">本月跑步</div>
+      </div>
+      <div class="stat-box" style="--sb-accent:#34d399">
+        <span class="stat-box-icon">⏱️</span>
+        <div class="stat-box-value" id="stat-monthly-hours">—<span class="stat-box-unit">h</span></div>
+        <div class="stat-box-label">運動總時數</div>
+        <div class="stat-box-sub" id="stat-monthly-hours-sub">本月所有活動</div>
+      </div>
+      <div class="stat-box" style="--sb-accent:#f97316">
+        <span class="stat-box-icon">🗓️</span>
+        <div class="stat-box-value" id="stat-monthly-acts">—</div>
+        <div class="stat-box-label">活動次數</div>
+        <div class="stat-box-sub" id="stat-monthly-acts-sub">本月所有運動</div>
+      </div>
+      <div class="stat-box pie-box">
+        <div class="chart-title">活動類型分佈</div>
+        <div class="pie-wrap">
+          <div class="pie-canvas-wrap">
+            <canvas id="chart-pie"></canvas>
+          </div>
+          <div class="pie-legend" id="pie-legend">
+            <!-- filled by JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scatter: Sleep vs Training Readiness -->
+  <div class="scatter-section">
+    <div class="section-title">關聯分析</div>
+    <div class="chart-card">
+      <div class="chart-header">
+        <div class="chart-title">
+          <span class="chart-dot" style="background:#a78bfa"></span>
+          睡眠分數 vs 訓練準備度
+        </div>
+        <div class="chart-stat">
+          <div class="chart-stat-value" id="stat-corr" style="color:#a78bfa; font-size:16px">—</div>
+          <div class="chart-stat-label">Pearson r</div>
+        </div>
+      </div>
+      <div class="chart-wrap-tall"><canvas id="chart-scatter"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Daily cards -->
+  <div class="cards-section">
+    <div class="section-title">每日摘要</div>
+
+    <!-- Search & Filter -->
+    <div class="filter-bar">
+      <div class="search-input-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="text" class="search-input" id="search-input" placeholder="搜尋活動名稱…" autocomplete="off">
+      </div>
+      <div class="filter-chips" id="filter-chips">
+        <button class="filter-chip active" data-type="all">全部</button>
+      </div>
+      <span class="cards-count" id="cards-count"></span>
+    </div>
+
+    <div class="cards-grid" id="cards-grid">
+      <!-- filled by JS -->
+    </div>
+  </div>
+
+</main>
+
+<!-- Workout detail modal -->
+<div class="modal-overlay" id="modal-overlay" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modal-title">—</div>
+        <div class="modal-subtitle" id="modal-subtitle">—</div>
+      </div>
+      <button class="modal-close" id="modal-close" aria-label="關閉">×</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<!-- Debug Panel (hidden; press Shift+D to toggle) -->
+<div class="container">
+  <div id="debug-panel" style="display:none; background:#0d1117; border:1px solid #2a3044; border-radius:8px; padding:16px; margin-bottom:24px; font-size:12px; font-family:monospace; color:#8892a4;">
+    <div style="color:#fbbf24; font-weight:600; margin-bottom:8px;">🐛 Debug Info (Shift+D 關閉)</div>
+    <div id="debug-content">載入中...</div>
+  </div>
+</div>
+
+<footer>
+  <div class="container">
+    資料來源：Garmin Connect · 更新時間：<span id="footer-time">—</span>
+    <span style="color:var(--text-muted);margin-left:12px;font-size:11px">Shift+D 開啟 Debug</span>
+  </div>
+</footer>
+
+<script>
+/* ─── Global error handler ───────────────────────────── */
+window.onerror = function(msg, src, line, col, err) {
+  const loader = document.getElementById('loading');
+  if (loader && !loader.classList.contains('hidden')) {
+    loader.innerHTML = `
+      <div style="color:#f87171;text-align:center;padding:24px;max-width:480px">
+        <div style="font-size:24px;margin-bottom:8px">⚠️</div>
+        <div style="font-weight:600;margin-bottom:6px;color:#e8edf5">頁面發生錯誤</div>
+        <div style="font-size:13px;color:#e8edf5;word-break:break-all;margin-bottom:6px">${msg}</div>
+        <div style="font-size:11px;color:#4a5568">${src ? src.split('/').pop() : ''}:${line}:${col}</div>
+        <div style="font-size:11px;color:#4a5568;margin-top:8px">請打開 DevTools Console (F12) 查看詳細錯誤。</div>
+      </div>`;
+  }
+  return false;
+};
+
+/* ─── Config ─────────────────────────────────────────── */
+const DAYS = 365; // 從 30 天改為 1 年，確保圖表有足夠資料點
+const WEEKDAYS = ['日','一','二','三','四','五','六'];
+const ACTIVITY_ICONS = {
+  running: '🏃', treadmill_running: '🏃', trail_running: '🏔️',
+  cycling: '🚴', indoor_cycling: '🚴',
+  swimming: '🏊', open_water_swimming: '🏊',
+  strength_training: '🏋️', fitness_equipment: '🏋️',
+  walking: '🚶', hiking: '🥾',
+  yoga: '🧘', pilates: '🧘',
+  badminton: '🏸', tennis: '🎾', ping_pong: '🏓',
+  golf: '⛳', basketball: '🏀', soccer: '⚽',
+  elliptical: '🔄', rowing: '🚣',
+  default: '⚡',
+};
+
+/* ─── Utilities ───────────────────────────────────────── */
+function getPastDates(n) {
+  const dates = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    dates.push(fmtDate(d));
+  }
+  return dates;
+}
+
+function fmtDate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}${m}${day}`;
+}
+
+function parseDate(s) {
+  return new Date(`${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`);
+}
+
+function displayDate(s) {
+  const d = parseDate(s);
+  return `${d.getMonth()+1}/${d.getDate()}`;
+}
+
+function longDate(s) {
+  const d = parseDate(s);
+  return `${d.getFullYear()} 年 ${d.getMonth()+1} 月 ${d.getDate()} 日`;
+}
+
+function formatSecs(sec) {
+  if (!sec) return '—';
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+function scoreClass(v, thresholds) {
+  if (v === null || v === undefined) return '';
+  const [good, fair] = thresholds;
+  if (v >= good) return 'score-excellent';
+  if (v >= fair) return 'score-good';
+  return 'score-fair';
+}
+
+function scoreColor(v, thresholds, colors) {
+  if (v === null || v === undefined) return 'var(--text-muted)';
+  const [good, fair] = thresholds;
+  if (v >= good) return colors[0];
+  if (v >= fair) return colors[1];
+  return colors[2];
+}
+
+/* ─── Fetch & parse ───────────────────────────────────── */
+async function fetchDay(dateStr) {
+  const timeoutP = new Promise(resolve => setTimeout(() => {
+    console.warn(`⏱️ fetchDay timeout: ${dateStr}`);
+    resolve(null);
+  }, 3000));
+  const fetchP = (async () => {
+    try {
+      const res = await fetch(`cache/${dateStr}.json`);
+      if (!res.ok) { console.log(`Missing data for ${dateStr}`); return null; }
+      return await res.json();
+    } catch (err) {
+      console.warn(`Failed to fetch ${dateStr}:`, err);
+      return null;
+    }
+  })();
+  return Promise.race([fetchP, timeoutP]);
+}
+
+function extractMetrics(data, dateStr) {
+  if (!data) return null;
+
+  // HRV
+  const hrv = data?.hrv_data?.hrvSummary?.lastNightAvg ?? null;
+  const hrvWeekly = data?.hrv_data?.hrvSummary?.weeklyAvg ?? null;
+  const hrvStatus = data?.hrv_data?.hrvSummary?.status ?? null;
+
+  // RHR
+  let rhr = null;
+  try {
+    const rhrList = data?.rhr_data?.allMetrics?.metricsMap?.WELLNESS_RESTING_HEART_RATE ?? [];
+    rhr = rhrList.length > 0 ? Math.round(rhrList[0]?.value) : null;
+    if (isNaN(rhr)) rhr = null;
+  } catch(e) { rhr = null; }
+
+  // Sleep
+  let sleepScore = null, deepSec = null, lightSec = null, remSec = null, totalSec = 0;
+  try {
+    const dto = data?.sleep_data?.dailySleepDTO ?? {};
+    sleepScore = dto?.sleepScores?.overall?.value ?? null;
+    deepSec = dto?.deepSleepSeconds ?? null;
+    lightSec = dto?.lightSleepSeconds ?? null;
+    remSec = dto?.remSleepSeconds ?? null;
+    totalSec = (deepSec || 0) + (lightSec || 0) + (remSec || 0);
+  } catch(e) {}
+
+  // Body Battery
+  let bb = null;
+  try {
+    const bbList = data?.sleep_data?.sleepBodyBattery ?? [];
+    bb = bbList.length > 0 ? (bbList[bbList.length - 1]?.value ?? null) : null;
+  } catch(e) { bb = null; }
+
+  // Training Readiness
+  let tr = null, trLevel = null;
+  try {
+    const trList = data?.training_readiness_data ?? [];
+    tr = trList.length > 0 ? (trList[0]?.score ?? null) : null;
+    trLevel = trList.length > 0 ? (trList[0]?.level ?? null) : null;
+  } catch(e) {}
+
+  // Activities
+  const rawActs = Array.isArray(data?.detail_activities) ? data.detail_activities : [];
+  const acts = rawActs.map(a => {
+    if (!a || typeof a !== 'object') return null;
+    try {
+      const hrZ = [1,2,3,4,5].map(i => a[`hrTimeInZone_${i}`] ?? 0);
+      const hrTotal = hrZ.reduce((s, v) => s + v, 0);
+      const lapDTOs = Array.isArray(a?.splits?.lapDTOs) ? a.splits.lapDTOs : [];
+
+      // GPS route from lap start points (prefer lapDTOs coords, fallback to activity start/end)
+      let gpsRoute = null;
+      try {
+        if (lapDTOs.length > 0) {
+          const pts = lapDTOs
+            .filter(l => l != null && l.startLatitude != null && l.startLongitude != null)
+            .map(l => [l.startLatitude, l.startLongitude]);
+          // append activity end point as final point
+          if (a.endLatitude != null && a.endLongitude != null) {
+            pts.push([a.endLatitude, a.endLongitude]);
+          }
+          if (pts.length >= 2) gpsRoute = pts;
+          else if (pts.length === 1 && a.startLatitude != null) {
+            gpsRoute = [[a.startLatitude, a.startLongitude], pts[0]];
+          }
+        }
+        // fallback: just start/end coords
+        if (!gpsRoute && a.startLatitude != null && a.endLatitude != null) {
+          gpsRoute = [[a.startLatitude, a.startLongitude], [a.endLatitude, a.endLongitude]];
+        }
+      } catch(e) { gpsRoute = null; }
+
+      return {
+        name: a.activityName || '',
+        type: a?.activityType?.typeKey || 'default',
+        distance: a.distance ?? null,
+        duration: a.duration ?? null,
+        avgHR: a.averageHR ?? null,
+        maxHR: a.maxHR ?? null,
+        calories: a.calories ?? null,
+        startTime: a.startTimeLocal ?? a.startTimeGMT ?? null,
+        hrZones: hrTotal > 0 ? hrZ : null,
+        lapDTOs,
+        gpsRoute,
+      };
+    } catch (e) {
+      console.warn('extractMetrics: 解析活動失敗，已跳過', e);
+      return null;
+    }
+  }).filter(Boolean);
+
+  return { dateStr, hrv, hrvWeekly, hrvStatus, rhr, sleepScore, deepSec, lightSec, remSec, totalSec, bb, tr, trLevel, acts };
+}
+
+/* ─── Charts ──────────────────────────────────────────── */
+function buildChart(id, labels, values, color, yLabel, yMin, yMax) {
+  const canvas = document.getElementById(id);
+  if (!canvas) return;
+  const opts = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: { legend: { display: false } },
+    scales: {
+      x: {
+        ticks: {
+          color: 'rgba(136,146,164,0.8)',
+          maxRotation: 0,
+          autoSkip: true,
+          maxTicksLimit: 6,
+          font: { size: 11 },
+        },
+        grid: { color: 'rgba(42,48,68,0.6)', drawBorder: false },
+      },
+      y: {
+        ticks: { color: 'rgba(136,146,164,0.8)', font: { size: 11 } },
+        grid: { color: 'rgba(42,48,68,0.6)', drawBorder: false },
+      },
+    },
+  };
+  if (yMin !== null && yMin !== undefined) opts.scales.y.min = yMin;
+  if (yMax !== null && yMax !== undefined) opts.scales.y.max = yMax;
+  return new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: yLabel || '',
+        data: values,
+        borderColor: color,
+        borderWidth: 3,
+        tension: 0.4,
+        spanGaps: true,
+        pointRadius: 0,
+        pointHitRadius: 20,
+        fill: true,
+        backgroundColor: color + '22',
+      }],
+    },
+    options: opts,
+  });
+}
+
+/* ─── Hero ────────────────────────────────────────────── */
+function renderHero(m) {
+  if (!m) return;
+  const grid = document.getElementById('hero-grid');
+
+  const STATUS_ZH = {
+    BALANCED: '均衡', HIGH: '偏高', LOW: '偏低',
+    UNBALANCED: '不穩', NO_DATA: '無資料',
+  };
+  const TR_ZH = {
+    NO_DATA: '無資料', LOW: '低', MODERATE: '中等',
+    HIGH: '高', VERY_HIGH: '極高',
+  };
+
+  const items = [
+    {
+      label: '睡眠分數', value: m.sleepScore, unit: '',
+      color: '#a78bfa', badge: null,
+      thresholds: [85, 70], colors: ['#34d399','#a3e635','#f87171'],
+    },
+    {
+      label: '心率變異 HRV', value: m.hrv, unit: 'ms',
+      color: '#22d3ee',
+      badge: m.hrvStatus ? (STATUS_ZH[m.hrvStatus] || m.hrvStatus) : null,
+      thresholds: [50, 35], colors: ['#34d399','#a3e635','#f87171'],
+    },
+    {
+      label: '靜止心率', value: m.rhr, unit: 'bpm',
+      color: '#f87171', badge: null,
+      thresholds: [999, 999], colors: ['#f87171','#f87171','#f87171'],
+      invert: true,
+    },
+    {
+      label: '身體電量', value: m.bb, unit: '',
+      color: '#fbbf24', badge: null,
+      thresholds: [75, 50], colors: ['#34d399','#fbbf24','#f87171'],
+    },
+    {
+      label: '訓練準備度', value: m.tr, unit: '',
+      color: '#34d399',
+      badge: m.trLevel ? (TR_ZH[m.trLevel] || m.trLevel) : null,
+      thresholds: [70, 50], colors: ['#34d399','#fbbf24','#f87171'],
+    },
+  ];
+
+  grid.innerHTML = items.map(item => {
+    const val = item.value;
+    const displayVal = val !== null ? val : '—';
+    const col = val !== null
+      ? scoreColor(val, item.thresholds, item.colors)
+      : 'var(--text-muted)';
+    const badgeHtml = item.badge
+      ? `<div class="hero-badge" style="--card-accent:${item.color}">${item.badge}</div>`
+      : '';
+    return `
+      <div class="hero-card" style="--card-accent:${item.color}">
+        <div class="hero-label">${item.label}</div>
+        <div class="hero-value" style="color:${col}">
+          ${displayVal}
+          ${val !== null && item.unit ? `<span class="hero-unit">${item.unit}</span>` : ''}
+        </div>
+        ${badgeHtml}
+      </div>`;
+  }).join('');
+}
+
+/* ─── Daily cards ─────────────────────────────────────── */
+function renderCards(days) {
+  const grid = document.getElementById('cards-grid');
+  const todayStr = fmtDate(new Date());
+
+  const validDays = days.filter(Boolean);
+  if (validDays.length === 0) {
+    grid.innerHTML = '<div class="empty-state">找不到有效數據</div>';
+    return;
+  }
+
+  grid.innerHTML = [...days].reverse().map(m => {
+    if (!m) return '';
+    const isToday = m.dateStr === todayStr;
+    const d = parseDate(m.dateStr);
+    const wd = WEEKDAYS[d.getDay()];
+
+    // sleep bar
+    const total = m.totalSec || 1;
+    const deepPct = ((m.deepSec || 0) / total * 100).toFixed(1);
+    const remPct  = ((m.remSec  || 0) / total * 100).toFixed(1);
+    const lightPct= ((m.lightSec|| 0) / total * 100).toFixed(1);
+    const hasSleep = m.totalSec > 0;
+
+    // sleep duration
+    const sleepDur = m.totalSec ? formatSecs(m.totalSec) : '—';
+
+    // activities
+    const actHtml = m.acts.length > 0
+      ? m.acts.map(a => {
+          const icon = ACTIVITY_ICONS[a.type] || ACTIVITY_ICONS.default;
+          const dist = a.distance > 100 ? ` ${(a.distance/1000).toFixed(1)}km` : '';
+          return `<span class="activity-tag">${icon} ${a.name || a.type}${dist}</span>`;
+        }).join('')
+      : '<span style="color:var(--text-muted);font-size:12px">休息日</span>';
+
+    const sleepCol = m.sleepScore !== null
+      ? scoreColor(m.sleepScore, [85,70], ['#34d399','#a3e635','#f87171'])
+      : 'var(--text-muted)';
+    const hrvCol = m.hrv !== null
+      ? scoreColor(m.hrv, [50,35], ['#34d399','#a3e635','#f87171'])
+      : 'var(--text-muted)';
+    const bbCol = m.bb !== null
+      ? scoreColor(m.bb, [75,50], ['#34d399','#fbbf24','#f87171'])
+      : 'var(--text-muted)';
+    const trCol = m.tr !== null
+      ? scoreColor(m.tr, [70,50], ['#34d399','#fbbf24','#f87171'])
+      : 'var(--text-muted)';
+
+    return `
+      <div class="day-card${isToday ? ' today' : ''}" data-date="${m.dateStr}" role="button" tabindex="0">
+        <div class="day-header">
+          <div>
+            <div class="day-date">${longDate(m.dateStr)}</div>
+            <div class="day-weekday">星期${wd} · 睡眠 ${sleepDur}</div>
+          </div>
+          ${isToday ? '<span class="today-badge">今日</span>' : ''}
+        </div>
+
+        ${hasSleep ? `
+        <div class="sleep-bar" title="深睡 ${formatSecs(m.deepSec)} / REM ${formatSecs(m.remSec)} / 淺睡 ${formatSecs(m.lightSec)}">
+          <div class="sleep-seg deep" style="width:${deepPct}%"></div>
+          <div class="sleep-seg rem"  style="width:${remPct}%"></div>
+          <div class="sleep-seg light"style="width:${lightPct}%"></div>
+        </div>` : ''}
+
+        <div class="day-metrics">
+          <div class="metric-cell">
+            <div class="metric-cell-value" style="color:${sleepCol}">${m.sleepScore ?? '<span class="metric-null">—</span>'}</div>
+            <div class="metric-cell-label">睡眠</div>
+          </div>
+          <div class="metric-cell">
+            <div class="metric-cell-value" style="color:${hrvCol}">${m.hrv ?? '<span class="metric-null">—</span>'}</div>
+            <div class="metric-cell-label">HRV</div>
+          </div>
+          <div class="metric-cell">
+            <div class="metric-cell-value" style="color:#f87171">${m.rhr ?? '<span class="metric-null">—</span>'}</div>
+            <div class="metric-cell-label">靜止心率</div>
+          </div>
+          <div class="metric-cell">
+            <div class="metric-cell-value" style="color:${bbCol}">${m.bb ?? '<span class="metric-null">—</span>'}</div>
+            <div class="metric-cell-label">電量</div>
+          </div>
+          <div class="metric-cell">
+            <div class="metric-cell-value" style="color:${trCol}">${m.tr ?? '<span class="metric-null">—</span>'}</div>
+            <div class="metric-cell-label">準備度</div>
+          </div>
+        </div>
+
+        <div class="day-activities">${actHtml}</div>
+        <div class="card-hint">點擊查看訓練細節 ›</div>
+      </div>`;
+  }).join('');
+}
+
+/* ─── Main ────────────────────────────────────────────── */
+async function main() {
+  console.log('🚀 training-log: 開始載入...');
+
+  // CDN availability check
+  if (typeof Chart === 'undefined' || window._chartJsFailed) {
+    console.error('⚠️ Chart.js 未載入，圖表將無法顯示。請確認網路連線或 CDN 可存取。');
+  } else {
+    console.log('✅ Chart.js 已就緒');
+  }
+  if (typeof L === 'undefined' || window._leafletFailed) {
+    console.warn('⚠️ Leaflet 未載入，地圖功能將不可用。');
+  } else {
+    console.log('✅ Leaflet 已就緒');
+  }
+
+  const loader = document.getElementById('loading');
+  const dates = getPastDates(DAYS);
+  const today = dates[dates.length - 1];
+
+  // set header immediately so it's visible even on error
+  document.getElementById('today-label').textContent = longDate(today);
+  document.getElementById('footer-time').textContent = new Date().toLocaleString('zh-TW');
+
+  console.log(`📅 準備載入 ${dates.length} 天資料 (${displayDate(dates[0])} – ${displayDate(today)})`);
+
+  try {
+    // fetch all days (each fetchDay already has 3s timeout and catches errors)
+    const results = await Promise.all(dates.map(d => fetchDay(d)));
+    console.log(`📦 fetch 完成，解析資料中...`);
+    updateDebugPanel(dates, results);
+
+    const days = results.map((data, i) => {
+      try { return extractMetrics(data, dates[i]); }
+      catch(e) { console.warn(`extractMetrics 失敗 ${dates[i]}:`, e); return null; }
+    });
+
+    // stats for header
+    const valid = days.filter(Boolean);
+    console.log(`✅ 已載入 ${valid.length} 天有效數據（共 ${dates.length} 天）`);
+
+    // ── 資料狀態面板：完全沒資料時顯示明顯錯誤提示 ──
+    if (valid.length === 0) {
+      document.getElementById('data-range').textContent = '找不到資料';
+      document.getElementById('cards-grid').innerHTML = `
+        <div class="empty-state" style="
+          grid-column: 1/-1;
+          background: rgba(248,113,113,0.08);
+          border: 1px solid rgba(248,113,113,0.3);
+          border-radius: 12px;
+          padding: 48px 32px;
+          text-align: center;
+        ">
+          <div style="font-size:40px;margin-bottom:16px">📂</div>
+          <div style="font-size:18px;font-weight:700;color:#f87171;margin-bottom:8px">
+            找不到 cache 數據，請檢查目錄路徑
+          </div>
+          <div style="font-size:13px;color:#8892a4;margin-top:8px">
+            確認 <code style="background:#1a1f2e;padding:2px 6px;border-radius:4px">cache/YYYYMMDD.json</code>
+            檔案存在於網頁同目錄下。
+          </div>
+          <div style="font-size:12px;color:#4a5568;margin-top:12px">
+            預期路徑範例：<code style="background:#1a1f2e;padding:2px 6px;border-radius:4px">cache/${today}.json</code>
+          </div>
+        </div>`;
+      return;
+    }
+
+    if (valid.length > 0) {
+      const first = valid[0].dateStr;
+      const last = valid[valid.length - 1].dateStr;
+      document.getElementById('data-range').textContent =
+        `${displayDate(first)} – ${displayDate(last)} (${valid.length} 天)`;
+    }
+
+    // latest non-null day for hero
+    const latest = [...days].reverse().find(d => d !== null);
+    if (latest) {
+      renderHero(latest);
+      console.log(`🏆 Hero 數據：睡眠=${latest.sleepScore} HRV=${latest.hrv} RHR=${latest.rhr} 電量=${latest.bb} 準備度=${latest.tr}`);
+    }
+
+    // update chart stat labels
+    const statOf = (arr, key) => {
+      for (let i = arr.length - 1; i >= 0; i--) {
+        if (arr[i]?.[key] !== null && arr[i]?.[key] !== undefined) return arr[i][key];
+      }
+      return '—';
+    };
+    document.getElementById('stat-sleep').textContent = statOf(days, 'sleepScore');
+    document.getElementById('stat-hrv').textContent   = statOf(days, 'hrv');
+    document.getElementById('stat-rhr').textContent   = statOf(days, 'rhr');
+    document.getElementById('stat-bb').textContent    = statOf(days, 'bb');
+    document.getElementById('stat-tr').textContent    = statOf(days, 'tr');
+
+    // populate dayIndex for modal click handler
+    days.forEach(d => { if (d) dayIndex[d.dateStr] = d; });
+
+    // daily cards
+    console.log('🗓️ 開始渲染每日卡片...');
+    renderCards(days);
+    console.log(`✅ 已渲染 ${valid.length} 張每日卡片`);
+
+    // ── 關鍵修復：先隱藏 loader，讓容器具備寬高 ──
+    console.log('🎉 隱藏 loading 畫面');
+    loader.classList.add('hidden');
+    
+    // 等待 DOM 渲染並完成 Reflow 後再畫圖表
+    setTimeout(() => {
+      console.log('📊 開始建立圖表...');
+      if (typeof Chart !== 'undefined') {
+        // Limit trend charts to the last 30 days
+        const TREND_DAYS = 30;
+        const trendDays  = days.slice(-TREND_DAYS);
+        const trendDates = dates.slice(-TREND_DAYS);
+        const labels = trendDates.map(displayDate);
+        const get = key => trendDays.map(d => d?.[key] ?? null);
+
+        const chartDefs = [
+          ['chart-sleep', get('sleepScore'), '#a78bfa', '分',  40, 100],
+          ['chart-hrv',   get('hrv'),        '#22d3ee', 'ms',  20,  null],
+          ['chart-rhr',   get('rhr'),        '#f87171', 'bpm', 40,  90],
+          ['chart-bb',    get('bb'),         '#fbbf24', '',    0,  100],
+          ['chart-tr',    get('tr'),         '#34d399', '分',  0,  100],
+        ];
+        for (const [id, vals, color, unit, yMin, yMax] of chartDefs) {
+          try {
+            buildChart(id, labels, vals, color, unit, yMin, yMax);
+            console.log(`  ✅ ${id} 渲染成功`);
+          } catch (e) { console.warn(`  ⚠️ ${id} 失敗:`, e); }
+        }
+        renderScatter(days);
+        renderMonthlyStats(days);
+      }
+      try { loader.remove(); } catch(e) {}
+    }, 600);
+
+  } finally {
+    // 確保萬一出錯也要隱藏
+    setTimeout(() => { if(loader) loader.classList.add('hidden'); }, 5000);
+  }
+}
+
+/* ─── Monthly Stats ───────────────────────────────────── */
+function renderMonthlyStats(days) {
+  // Use the year/month from the latest available data instead of 'now'
+  const latestDay = days.filter(Boolean).slice(-1)[0] || null;
+  if (!latestDay) return;
+  
+  const targetDate = parseDate(latestDay.dateStr);
+  const targetYear = targetDate.getFullYear();
+  const targetMonth = targetDate.getMonth();
+
+  const monthDays = days.filter(d => {
+    if (!d) return false;
+    const dt = parseDate(d.dateStr);
+    return dt.getFullYear() === targetYear && dt.getMonth() === targetMonth;
+  });
+  console.log(`📅 統計月份：${targetYear}/${targetMonth + 1}，共 ${monthDays.length} 天資料`);
+
+  let totalRunKm = 0;
+  let totalExerciseSec = 0;
+  let totalActs = 0;
+  const typeCounts = {};
+
+  for (const d of monthDays) {
+    for (const a of d.acts) {
+      totalActs++;
+      const dur = a.duration || 0;
+      totalExerciseSec += dur;
+      const type = a.type || 'default';
+      typeCounts[type] = (typeCounts[type] || 0) + 1;
+      if (RUNNING_TYPES.has(type) && a.distance) {
+        totalRunKm += a.distance / 1000;
+      }
+    }
+  }
+
+  const totalExerciseHours = totalExerciseSec / 3600;
+
+  document.getElementById('stat-monthly-km').innerHTML =
+    `${totalRunKm.toFixed(1)}<span class="stat-box-unit">km</span>`;
+  document.getElementById('stat-monthly-km-sub').textContent =
+    `本月跑步 · ${monthDays.length} 天數據`;
+  document.getElementById('stat-monthly-hours').innerHTML =
+    `${totalExerciseHours.toFixed(1)}<span class="stat-box-unit">h</span>`;
+  document.getElementById('stat-monthly-hours-sub').textContent =
+    `本月所有活動 · ${Math.round(totalExerciseSec/60)} 分鐘`;
+  document.getElementById('stat-monthly-acts').textContent = totalActs;
+  document.getElementById('stat-monthly-acts-sub').textContent =
+    `本月所有運動 · ${monthDays.length} 天`;
+
+  console.log(`🏃 本月跑步：${totalRunKm.toFixed(1)} km，運動：${totalExerciseHours.toFixed(1)} h，活動：${totalActs} 次`);
+
+  // Pie chart
+  if (typeof Chart !== 'undefined') {
+    const PIE_COLORS = ['#3b82f6','#34d399','#fbbf24','#f87171','#a78bfa','#22d3ee','#f97316','#ec4899'];
+    const sortedTypes = Object.entries(typeCounts).sort((a, b) => b[1] - a[1]);
+    if (sortedTypes.length === 0) {
+      document.getElementById('pie-legend').innerHTML =
+        '<div style="color:var(--text-muted);font-size:12px">本月無活動數據</div>';
+      return;
+    }
+    const pieLabels = sortedTypes.map(([t]) => t);
+    const pieData   = sortedTypes.map(([,c]) => c);
+    const pieColors = pieLabels.map((_, i) => PIE_COLORS[i % PIE_COLORS.length]);
+    const canvas = document.getElementById('chart-pie');
+    if (canvas) {
+      try {
+        new Chart(canvas.getContext('2d'), {
+          type: 'doughnut',
+          data: {
+            labels: pieLabels,
+            datasets: [{ data: pieData, backgroundColor: pieColors, borderWidth: 0 }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                backgroundColor: '#1e2435',
+                borderColor: '#3a4460',
+                borderWidth: 1,
+                titleColor: '#e8edf5',
+                bodyColor: '#8892a4',
+                padding: 10,
+                cornerRadius: 8,
+              },
+            },
+          },
+        });
+        console.log('  ✅ chart-pie 建立成功');
+      } catch(e) { console.warn('  ⚠️ chart-pie 建立失敗:', e); }
+    }
+    const legend = document.getElementById('pie-legend');
+    if (legend) {
+      legend.innerHTML = sortedTypes.slice(0, 6).map(([t, c], i) => `
+        <div class="pie-legend-item">
+          <div class="pie-legend-dot" style="background:${pieColors[i]}"></div>
+          <span class="pie-legend-name">${t}</span>
+          <span class="pie-legend-count">${c}</span>
+        </div>`).join('');
+    }
+  }
+}
+
+/* ─── Scatter Chart ───────────────────────────────────── */
+function pearsonR(xs, ys) {
+  const n = xs.length;
+  if (n < 2) return null;
+  const mx = xs.reduce((s, v) => s + v, 0) / n;
+  const my = ys.reduce((s, v) => s + v, 0) / n;
+  const num = xs.reduce((s, v, i) => s + (v - mx) * (ys[i] - my), 0);
+  const dx = Math.sqrt(xs.reduce((s, v) => s + (v - mx) ** 2, 0));
+  const dy = Math.sqrt(ys.reduce((s, v) => s + (v - my) ** 2, 0));
+  if (dx === 0 || dy === 0) return null;
+  return num / (dx * dy);
+}
+
+function renderScatter(days) {
+  if (typeof Chart === 'undefined') return;
+  const pts = days
+    .filter(d => d && d.sleepScore !== null && d.tr !== null)
+    .map(d => ({ x: d.sleepScore, y: d.tr, label: displayDate(d.dateStr) }));
+  console.log(`📈 散佈圖數據點：${pts.length} 個`);
+
+  const canvas = document.getElementById('chart-scatter');
+  if (!canvas) return;
+
+  if (pts.length < 2) {
+    const wrap = canvas.closest('.chart-wrap-tall');
+    if (wrap) wrap.innerHTML =
+      '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:13px">資料不足（需要至少 2 天同時有睡眠分數和訓練準備度）</div>';
+    document.getElementById('stat-corr').textContent = '—';
+    return;
+  }
+
+  const xs = pts.map(p => p.x);
+  const ys = pts.map(p => p.y);
+  const r = pearsonR(xs, ys);
+  const rStr = r !== null ? r.toFixed(2) : '—';
+  document.getElementById('stat-corr').textContent = rStr;
+
+  try {
+    new Chart(canvas.getContext('2d'), {
+      type: 'scatter',
+      data: {
+        datasets: [{
+          data: pts.map(p => ({ x: p.x, y: p.y })),
+          backgroundColor: '#a78bfa55',
+          borderColor: '#a78bfa',
+          borderWidth: 1,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 600 },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#1e2435',
+            borderColor: '#3a4460',
+            borderWidth: 1,
+            titleColor: '#e8edf5',
+            bodyColor: '#8892a4',
+            padding: 10,
+            cornerRadius: 8,
+            callbacks: {
+              title: (items) => pts[items[0].dataIndex]?.label || '',
+              label: item => `睡眠: ${item.raw.x}  準備度: ${item.raw.y}`,
+            },
+          },
+        },
+        scales: {
+          x: {
+            title: { display: true, text: '睡眠分數', color: '#4a5568', font: { size: 11 } },
+            min: 40, max: 100,
+            grid: { color: 'rgba(42,48,68,0.6)', drawTicks: false },
+            border: { display: false },
+            ticks: { color: '#4a5568', font: { size: 10 } },
+          },
+          y: {
+            title: { display: true, text: '訓練準備度', color: '#4a5568', font: { size: 11 } },
+            min: 0, max: 100,
+            grid: { color: 'rgba(42,48,68,0.6)', drawTicks: false },
+            border: { display: false },
+            ticks: { color: '#4a5568', font: { size: 10 } },
+          },
+        },
+      },
+    });
+    console.log(`  ✅ chart-scatter 建立成功 (r=${rStr})`);
+  } catch(e) { console.warn('  ⚠️ chart-scatter 建立失敗:', e); }
+}
+
+/* ─── Debug Panel ─────────────────────────────────────── */
+function updateDebugPanel(dates, results) {
+  const loaded = [], missing = [];
+  results.forEach((data, i) => {
+    if (data) loaded.push(dates[i]);
+    else missing.push(dates[i]);
+  });
+  const content = document.getElementById('debug-content');
+  if (!content) return;
+  content.innerHTML = `
+    <div style="margin-bottom:8px">
+      <span style="color:#34d399">✅ 已載入：${loaded.length} 天</span>
+      <span style="color:#f87171">❌ 缺少：${missing.length} 天</span>
+    </div>
+    <div style="margin-bottom:6px;color:#22d3ee">已載入檔案：</div>
+    <div style="color:#4a5568;line-height:1.8;word-break:break-all">${loaded.join('  ') || '（無）'}</div>
+    ${missing.length ? `<div style="margin-top:8px;margin-bottom:4px;color:#f87171">缺少檔案：</div>
+    <div style="color:#4a5568;line-height:1.8;word-break:break-all">${missing.join('  ')}</div>` : ''}`;
+}
+
+// Press Shift+D to toggle debug panel
+document.addEventListener('keydown', e => {
+  if (e.shiftKey && e.key === 'D') {
+    const p = document.getElementById('debug-panel');
+    if (p) p.style.display = p.style.display === 'none' ? 'block' : 'none';
+  }
+});
+
+/* ─── Zone helpers ────────────────────────────────────── */
+const HR_ZONES = [
+  { label: 'Z1 熱身', cls: 'zc1' },
+  { label: 'Z2 有氧', cls: 'zc2' },
+  { label: 'Z3 節奏', cls: 'zc3' },
+  { label: 'Z4 閾值', cls: 'zc4' },
+  { label: 'Z5 無氧', cls: 'zc5' },
+];
+const PACE_ZONES = [
+  { label: 'Z1 輕鬆', cls: 'zc1', minMps: 0,      maxMps: 2.38  },  // >7:00/km
+  { label: 'Z2 有氧', cls: 'zc2', minMps: 2.38,   maxMps: 2.78  },  // 6:00-7:00/km
+  { label: 'Z3 節奏', cls: 'zc3', minMps: 2.78,   maxMps: 3.33  },  // 5:00-6:00/km
+  { label: 'Z4 閾值', cls: 'zc4', minMps: 3.33,   maxMps: 4.17  },  // 4:00-5:00/km
+  { label: 'Z5 速度', cls: 'zc5', minMps: 4.17,   maxMps: Infinity }, // <4:00/km
+];
+
+function fmtSecs(sec) {
+  if (!sec || sec < 1) return '0s';
+  const m = Math.floor(sec / 60);
+  const s = Math.round(sec % 60);
+  if (m === 0) return `${s}s`;
+  return s > 0 ? `${m}m${s}s` : `${m}m`;
+}
+
+function mpsToMinKm(mps) {
+  if (!mps || mps <= 0) return Infinity;
+  return 1000 / (mps * 60);
+}
+
+function fmtPace(minPerKm) {
+  if (!isFinite(minPerKm) || minPerKm <= 0) return '—';
+  const m = Math.floor(minPerKm);
+  const s = Math.round((minPerKm - m) * 60);
+  return `${m}:${String(s).padStart(2,'0')}/km`;
+}
+
+function buildZoneBars(zones, zoneDefs) {
+  const total = zones.reduce((s, v) => s + v, 0);
+  if (total < 1) return `<div class="zone-empty">無詳細區間數據</div>`;
+
+  const stackedSegs = zones.map((sec, i) => {
+    const pct = (sec / total * 100).toFixed(1);
+    if (pct < 0.5) return '';
+    return `<div class="zone-stacked-seg ${zoneDefs[i].cls}" style="width:${pct}%" title="${zoneDefs[i].label}: ${fmtSecs(sec)}"></div>`;
+  }).join('');
+
+  const rows = zones.map((sec, i) => {
+    const pct = (sec / total * 100);
+    const pctStr = pct.toFixed(0) + '%';
+    return `
+      <div class="zone-row">
+        <div class="zone-label">
+          <span class="zone-dot ${zoneDefs[i].cls}"></span>${zoneDefs[i].label}
+        </div>
+        <div class="zone-bar-track">
+          <div class="zone-bar-fill ${zoneDefs[i].cls}" style="width:${pct.toFixed(1)}%"></div>
+        </div>
+        <div class="zone-time">${fmtSecs(sec)}</div>
+        <div class="zone-pct">${pctStr}</div>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="zone-stacked">${stackedSegs}</div>
+    <div class="zone-rows">${rows}</div>`;
+}
+
+function buildPaceZones(lapDTOs) {
+  if (!lapDTOs || lapDTOs.length === 0) return null;
+  const paceSeconds = [0, 0, 0, 0, 0];
+  for (const lap of lapDTOs) {
+    const spd = lap.averageSpeed || 0;
+    if (spd <= 0.5) continue; // stationary, skip
+    const dur = lap.duration || 0;
+    const idx = PACE_ZONES.findIndex(z => spd >= z.minMps && spd < z.maxMps);
+    if (idx >= 0) paceSeconds[idx] += dur;
+  }
+  const total = paceSeconds.reduce((s, v) => s + v, 0);
+  return total > 5 ? paceSeconds : null;
+}
+
+const RUNNING_TYPES = new Set([
+  'running', 'treadmill_running', 'trail_running', 'track_running', 'virtual_run',
+]);
+
+/* ─── Modal ───────────────────────────────────────────── */
+let dayIndex = {};  // dateStr -> metrics object
+
+function fmtStartTime(s) {
+  if (!s) return '—';
+  // "2025-03-14 07:30:00" or ISO
+  const d = new Date(s.replace(' ', 'T'));
+  if (isNaN(d)) return s;
+  return d.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+function buildLapsTable(laps) {
+  if (!laps || laps.length === 0) return '';
+  
+  const rows = laps.map((l, i) => {
+    const time = formatSecs(l.duration);
+    const dist = (l.distance / 1000).toFixed(2);
+    const mps = l.averageSpeed || (l.distance / (l.duration || 1));
+    const pace = fmtPace(mpsToMinKm(mps));
+    const hr = l.averageHR ? Math.round(l.averageHR) : '—';
+    
+    return `
+      <tr>
+        <td>${i + 1}</td>
+        <td>${time}</td>
+        <td>${dist}</td>
+        <td>${pace}</td>
+        <td>${hr}</td>
+      </tr>`;
+  }).join('');
+
+  return `
+    <div class="laps-section">
+      <div class="zone-section-title"><span class="zone-icon">🏁</span>分圈數據 (Laps)</div>
+      <div class="laps-table-wrapper">
+        <table class="laps-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>時間</th>
+              <th>距離</th>
+              <th>配速</th>
+              <th>心率</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function buildActCard(a) {
+  const icon = ACTIVITY_ICONS[a.type] || ACTIVITY_ICONS.default;
+  const distVal = (a.distance != null && a.distance > 10)
+    ? (a.distance / 1000).toFixed(2) : '—';
+  const durVal  = a.duration != null ? formatSecs(a.duration) : '—';
+  const hrVal   = a.avgHR != null ? Math.round(a.avgHR) : '—';
+  const calVal  = a.calories != null ? Math.round(a.calories) : '—';
+  const timeStr = fmtStartTime(a.startTime);
+
+  // Pace (for running only)
+  const isRunning = RUNNING_TYPES.has(a.type);
+  let paceStr = '—';
+  if (isRunning && a.distance > 10 && a.duration > 0) {
+    const mps = a.distance / a.duration;
+    paceStr = fmtPace(mpsToMinKm(mps));
+  }
+
+  // HR zone section
+  let hrZoneHtml = '';
+  if (a.hrZones) {
+    hrZoneHtml = `
+      <div class="zone-section">
+        <div class="zone-section-title"><span class="zone-icon">❤️</span>心率區間分佈</div>
+        ${buildZoneBars(a.hrZones, HR_ZONES)}
+      </div>`;
+  } else if (a.avgHR) {
+    hrZoneHtml = `
+      <div class="zone-section">
+        <div class="zone-section-title"><span class="zone-icon">❤️</span>心率區間分佈</div>
+        <div class="zone-empty">無詳細區間數據</div>
+      </div>`;
+  }
+
+  // Pace zone section (running only)
+  let paceZoneHtml = '';
+  if (isRunning) {
+    const paceZoneSecs = buildPaceZones(a.lapDTOs);
+    if (paceZoneSecs) {
+      paceZoneHtml = `
+        <div class="zone-section">
+          <div class="zone-section-title"><span class="zone-icon">⚡</span>配速區間分佈</div>
+          ${buildZoneBars(paceZoneSecs, PACE_ZONES)}
+        </div>`;
+    } else {
+      paceZoneHtml = `
+        <div class="zone-section">
+          <div class="zone-section-title"><span class="zone-icon">⚡</span>配速區間分佈</div>
+          <div class="zone-empty">無詳細區間數據</div>
+        </div>`;
+    }
+  }
+
+  // Stats grid — show pace instead of distance for running
+  const stat2Label = isRunning ? '均速配速' : '距離 km';
+  const stat2Value = isRunning ? paceStr : (distVal === '—' ? '—' : distVal);
+
+  // GPS map section
+  const mapId = `map-${Math.random().toString(36).slice(2)}`;
+  const mapHtml = a.gpsRoute
+    ? `<div class="map-section" style="margin-top:12px;padding-top:0;border-top:none;margin-bottom:12px">
+        <div id="${mapId}" style="width:100%;height:240px;min-height:240px;border-radius:8px;border:1px solid var(--border-subtle);position:relative;z-index:0;"></div>
+      </div>`
+    : '';
+
+  return `
+    <div class="act-card" data-map-id="${mapId}" data-gps='${a.gpsRoute ? JSON.stringify(a.gpsRoute) : ''}'>
+      <div class="act-card-header">
+        <div class="act-icon">${icon}</div>
+        <div>
+          <div class="act-name">${a.name || a.type}</div>
+          <div class="act-time">開始時間 ${timeStr}</div>
+        </div>
+      </div>
+      ${mapHtml}
+      <div class="act-stats">
+        <div class="act-stat">
+          <div class="act-stat-value">${durVal}</div>
+          <div class="act-stat-label">時長</div>
+        </div>
+        <div class="act-stat">
+          <div class="act-stat-value">${stat2Value}</div>
+          <div class="act-stat-label">${stat2Label}</div>
+        </div>
+        <div class="act-stat">
+          <div class="act-stat-value" style="color:#f87171">${hrVal === '—' ? hrVal : hrVal + ' <span style="font-size:11px;font-weight:400">bpm</span>'}</div>
+          <div class="act-stat-label">平均心率</div>
+        </div>
+        <div class="act-stat">
+          <div class="act-stat-value" style="color:#fbbf24">${calVal === '—' ? calVal : calVal + ' <span style="font-size:11px;font-weight:400">kcal</span>'}</div>
+          <div class="act-stat-label">消耗熱量</div>
+        </div>
+      </div>
+      ${hrZoneHtml}
+      ${paceZoneHtml}
+      ${buildLapsTable(a.lapDTOs)}
+    </div>`;
+}
+
+let _leafletMaps = [];
+
+function destroyMaps() {
+  _leafletMaps.forEach(m => { try { m.remove(); } catch(e) {} });
+  _leafletMaps = [];
+}
+
+function initMaps() {
+  // If Leaflet failed to load, show error in every map container
+  if (typeof L === 'undefined') {
+    console.error('❌ initMaps: Leaflet (L) 未定義，地圖無法初始化。請確認 CDN 連線正常且未被 CSP 封鎖。');
+    document.querySelectorAll('.act-card[data-gps]').forEach(card => {
+      const mapId = card.dataset.mapId;
+      const el = document.getElementById(mapId);
+      if (el) el.innerHTML = '<div class="map-error">⚠️ 地圖資源載入失敗<br><small>請確認網路連線後重新整理頁面</small></div>';
+    });
+    return;
+  }
+
+  const cards = document.querySelectorAll('.act-card[data-gps]');
+  console.log(`🗺️ initMaps: 找到 ${cards.length} 張有 GPS 的活動卡片`);
+
+  cards.forEach(card => {
+    const raw = card.dataset.gps;
+    if (!raw) return;
+
+    let pts;
+    try {
+      pts = JSON.parse(raw);
+    } catch(e) {
+      console.error('❌ GPS JSON 解析失敗:', e, '原始資料前80字:', raw.slice(0, 80));
+      const mapId = card.dataset.mapId;
+      const el = document.getElementById(mapId);
+      if (el) el.innerHTML = '<div class="map-error">⚠️ GPS 資料解析失敗</div>';
+      return;
+    }
+
+    if (!pts || pts.length < 1) {
+      console.warn('⚠️ GPS 點數為 0，跳過地圖渲染');
+      return;
+    }
+
+    const mapId = card.dataset.mapId;
+    const el = document.getElementById(mapId);
+    if (!el) { console.warn('⚠️ 找不到地圖容器:', mapId); return; }
+    if (el._leaflet_id) return; // already initialized
+
+    console.log(`🗺️ 初始化地圖 ${mapId}，GPS 點數: ${pts.length}，容器尺寸: ${el.offsetWidth}×${el.offsetHeight}`);
+
+    const map = L.map(el, {
+      zoomControl: true,
+      attributionControl: true,
+      scrollWheelZoom: false,
+    });
+    const osmTile = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap',
+      maxZoom: 18,
+    });
+    const cartoTile = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '© OpenStreetMap © CARTO',
+      subdomains: 'abcd',
+      maxZoom: 19,
+    });
+    osmTile.addTo(map);
+    osmTile.once('tileerror', () => {
+      console.warn('⚠️ OSM tile 載入失敗，切換至 CartoDB 備援');
+      map.removeLayer(osmTile);
+      cartoTile.addTo(map);
+    });
+
+    const polyline = L.polyline(pts, {
+      color: '#3b82f6',
+      weight: 3,
+      opacity: 0.85,
+    }).addTo(map);
+
+    // Start / end markers
+    const startIcon = L.divIcon({
+      html: '<div style="background:#34d399;width:10px;height:10px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,0.5)"></div>',
+      iconSize: [10, 10], iconAnchor: [5, 5], className: '',
+    });
+    const endIcon = L.divIcon({
+      html: '<div style="background:#f87171;width:10px;height:10px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,0.5)"></div>',
+      iconSize: [10, 10], iconAnchor: [5, 5], className: '',
+    });
+    L.marker(pts[0], { icon: startIcon }).addTo(map).bindTooltip('起點');
+    L.marker(pts[pts.length - 1], { icon: endIcon }).addTo(map).bindTooltip('終點');
+
+    map.fitBounds(polyline.getBounds(), { padding: [20, 20] });
+
+    // Call invalidateSize at 100ms, 500ms, 1000ms to handle slow mobile rendering
+    // and modal CSS transition (250ms) completing after map initialization
+    [100, 500, 1000].forEach(delay => {
+      setTimeout(() => {
+        try {
+          map.invalidateSize();
+          console.log(`🗺️ invalidateSize @${delay}ms，容器: ${el.offsetWidth}×${el.offsetHeight}`);
+        } catch(e) { console.warn(`invalidateSize @${delay}ms 失敗:`, e); }
+      }, delay);
+    });
+
+    _leafletMaps.push(map);
+  });
+}
+
+function openModal(dateStr) {
+  const m = dayIndex[dateStr];
+  if (!m) return;
+  const d = parseDate(dateStr);
+  const wd = WEEKDAYS[d.getDay()];
+  document.getElementById('modal-title').textContent = longDate(dateStr) + '（星期' + wd + '）';
+  document.getElementById('modal-subtitle').textContent =
+    m.acts.length > 0 ? `共 ${m.acts.length} 個活動` : '休息日';
+
+  destroyMaps();
+  const body = document.getElementById('modal-body');
+  if (m.acts.length === 0) {
+    body.innerHTML = '<div class="modal-empty">🛌 今日無訓練記錄</div>';
+  } else {
+    body.innerHTML = m.acts.map(buildActCard).join('');
+    // wait for modal transition (250ms) + buffer before init maps so container has real dimensions
+    // use 350ms to be safely past the transition on slow mobile devices
+    setTimeout(() => {
+      if (typeof L === 'undefined') {
+        console.error('❌ initMaps 延遲執行前 Leaflet (L) 仍未定義，跳過地圖初始化。');
+        return;
+      }
+      initMaps();
+    }, 350);
+  }
+
+  document.getElementById('modal-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+  destroyMaps();
+  document.getElementById('modal-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+document.getElementById('modal-close').addEventListener('click', closeModal);
+document.getElementById('modal-overlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeModal();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+});
+
+// Card click delegation (set up after cards are rendered)
+document.getElementById('cards-grid').addEventListener('click', e => {
+  const card = e.target.closest('.day-card');
+  if (card) openModal(card.dataset.date);
+});
+document.getElementById('cards-grid').addEventListener('keydown', e => {
+  if (e.key === 'Enter' || e.key === ' ') {
+    const card = e.target.closest('.day-card');
+    if (card) { e.preventDefault(); openModal(card.dataset.date); }
+  }
+});
+
+main().catch(err => {
+  console.error('main() uncaught error:', err);
+  // loader may already be removed by finally; show error in cards area instead
+  const grid = document.getElementById('cards-grid');
+  if (grid) {
+    grid.innerHTML = `
+      <div class="empty-state" style="grid-column:1/-1;color:#f87171">
+        <div style="font-size:24px;margin-bottom:8px">⚠️</div>
+        <div>載入失敗，請確認 cache/ 目錄可存取。</div>
+        <div style="font-size:12px;color:#4a5568;margin-top:8px">${err.message || ''}</div>
+      </div>`;
+  }
+  // ensure loader is hidden
+  const loader = document.getElementById('loading');
+  if (loader) { loader.classList.add('hidden'); setTimeout(() => { try { loader.remove(); } catch(e) {} }, 500); }
+});
+</script>
+
+</body>
+</html>
