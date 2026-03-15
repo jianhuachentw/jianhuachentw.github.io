@@ -230,6 +230,7 @@
         </div>
 
         <button id="settle-btn" class="btn-settle" onclick="settle()">🏦 結算並存入銀行</button>
+        <button class="btn-settle" style="background:#e91e63; box-shadow:0 4px #c2185b; margin-top:10px;" onclick="redeem()">🎁 兌換獎勵 (扣點)</button>
         <button class="btn-reset" onclick="resetToday()">清空今日勾選 (不計入歷史)</button>
 
         <button class="btn-settle" style="background:#2196f3; box-shadow:0 4px #1976d2; margin-top:20px;"
@@ -312,6 +313,21 @@
             });
 
             document.getElementById('bank-val').innerText = balance;
+            document.getElementById('history-content').innerHTML = html || "<p style='color:grey; font-size:0.8em;'>尚無歷史紀錄</p>";
+        }
+
+        function resetToday() {
+            document.querySelectorAll('.cb').forEach(cb => cb.checked = false);
+            updateScore();
+        }
+
+        document.querySelectorAll('.cb').forEach(cb => cb.addEventListener('change', updateScore));
+        window.onload = () => loadData();
+    </script>
+
+</body>
+
+</html>
             document.getElementById('history-content').innerHTML = html || "<p style='color:grey; font-size:0.8em;'>尚無歷史紀錄</p>";
         }
 
