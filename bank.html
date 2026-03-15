@@ -273,21 +273,34 @@
             let score = parseInt(document.getElementById('total-score').innerText);
             if (score === 0) return alert("還沒有點數可以結算喔！");
 
-            let used = prompt(`【${config[currentChild].name}】本週獲得 ${score} 點。\n要扣除多少點換獎勵？(不換填0)`, "0");
-            if (used === null) return;
-
-            let remain = score - parseInt(used);
-            if (remain < 0) return alert("點數不足！");
-
             let date = new Date().toLocaleDateString();
-            let record = { id: Date.now(), date, used, remain };
+            let record = { id: Date.now(), date, used: 0, remain: score };
 
             let history = JSON.parse(localStorage.getItem(currentChild + '_logs') || "[]");
             history.unshift(record);
             localStorage.setItem(currentChild + '_logs', JSON.stringify(history));
 
-            alert(`結算成功！${remain} 點已存入 ${config[currentChild].name} 的銀行紀錄。`);
+            alert(`結算成功！${score} 點已存入 ${config[currentChild].name} 的銀行紀錄。`);
             resetToday();
+            loadData();
+        }
+
+        function redeem() {
+            let balance = parseInt(document.getElementById('bank-val').innerText);
+            if (balance <= 0) return alert("銀行目前沒有點數喔！");
+
+            let used = prompt(`【${config[currentChild].name}】目前銀行餘額 ${balance} 點。\n要扣除多少點換獎勵？`, "0");
+            if (used === null || parseInt(used) <= 0) return;
+            if (parseInt(used) > balance) return alert("點數不足！");
+
+            let date = new Date().toLocaleDateString();
+            let record = { id: Date.now(), date, used: used, remain: -parseInt(used) };
+
+            let history = JSON.parse(localStorage.getItem(currentChild + '_logs') || "[]");
+            history.unshift(record);
+            localStorage.setItem(currentChild + '_logs', JSON.stringify(history));
+
+            alert(`兌換成功！已扣除 ${used} 點。`);
             loadData();
         }
 
@@ -313,21 +326,6 @@
             });
 
             document.getElementById('bank-val').innerText = balance;
-            document.getElementById('history-content').innerHTML = html || "<p style='color:grey; font-size:0.8em;'>尚無歷史紀錄</p>";
-        }
-
-        function resetToday() {
-            document.querySelectorAll('.cb').forEach(cb => cb.checked = false);
-            updateScore();
-        }
-
-        document.querySelectorAll('.cb').forEach(cb => cb.addEventListener('change', updateScore));
-        window.onload = () => loadData();
-    </script>
-
-</body>
-
-</html>
             document.getElementById('history-content').innerHTML = html || "<p style='color:grey; font-size:0.8em;'>尚無歷史紀錄</p>";
         }
 
