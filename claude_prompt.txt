@@ -1,0 +1,6 @@
+請將 training-log.html 的圖表區間改為動態：
+1. UI: 在「30 天趨勢」標題旁插入 HTML select: <select id='trend-range'><option value='30'>30天</option><option value='90'>90天</option><option value='365'>全覽</option></select>。
+2. JS: 移除 hardcoded `const TREND_DAYS = 30;`。
+3. 實作 `renderTrendCharts(daysCount)`：根據選取的 daysCount 重新 slice 資料集並調用 Chart.js 的 `destroy()` 和重新繪製。
+4. 綁定 event listener：當 select 值變更時，觸發 `renderTrendCharts()`。
+5. 提交 commit。
