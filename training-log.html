@@ -844,7 +844,13 @@
 
   <!-- Trend charts -->
   <div class="charts-section">
-    <div class="section-title">30 天趨勢</div>
+    <div class="section-title" style="display:flex;align-items:center;gap:12px;">30 天趨勢
+      <select id="trend-range" style="background:#1e2235;color:#a0aabf;border:1px solid #2a3044;border-radius:6px;padding:2px 8px;font-size:13px;cursor:pointer;">
+        <option value="30">30天</option>
+        <option value="90">90天</option>
+        <option value="365">全覽</option>
+      </select>
+    </div>
     <div class="charts-grid">
 
       <!-- Sleep score -->
@@ -1229,6 +1235,32 @@ function extractMetrics(data, dateStr) {
 }
 
 /* ─── Charts ──────────────────────────────────────────── */
+const _trendCharts = {};
+
+function renderTrendCharts(daysCount) {
+  if (typeof Chart === 'undefined' || !window._allDays || !window._allDates) return;
+  const n = parseInt(daysCount) || 30;
+  const trendDays  = window._allDays.slice(-n);
+  const trendDates = window._allDates.slice(-n);
+  const labels = trendDates.map(displayDate);
+  const get = key => trendDays.map(d => d?.[key] ?? null);
+
+  const chartDefs = [
+    ['chart-sleep', get('sleepScore'), '#a78bfa', '分',  40, 100],
+    ['chart-hrv',   get('hrv'),        '#22d3ee', 'ms',  20,  null],
+    ['chart-rhr',   get('rhr'),        '#f87171', 'bpm', 40,  90],
+    ['chart-bb',    get('bb'),         '#fbbf24', '',    0,  100],
+    ['chart-tr',    get('tr'),         '#34d399', '分',  0,  100],
+  ];
+  for (const [id, vals, color, unit, yMin, yMax] of chartDefs) {
+    try {
+      if (_trendCharts[id]) { _trendCharts[id].destroy(); delete _trendCharts[id]; }
+      _trendCharts[id] = buildChart(id, labels, vals, color, unit, yMin, yMax);
+      console.log(`  ✅ ${id} 渲染成功`);
+    } catch (e) { console.warn(`  ⚠️ ${id} 失敗:`, e); }
+  }
+}
+
 function buildChart(id, labels, values, color, yLabel, yMin, yMax) {
   const canvas = document.getElementById(id);
   if (!canvas) return;
@@ -1549,28 +1581,14 @@ async function main() {
     setTimeout(() => {
       console.log('📊 開始建立圖表...');
       if (typeof Chart !== 'undefined') {
-        // Limit trend charts to the last 30 days
-        const TREND_DAYS = 30;
-        const trendDays  = days.slice(-TREND_DAYS);
-        const trendDates = dates.slice(-TREND_DAYS);
-        const labels = trendDates.map(displayDate);
-        const get = key => trendDays.map(d => d?.[key] ?? null);
-
-        const chartDefs = [
-          ['chart-sleep', get('sleepScore'), '#a78bfa', '分',  40, 100],
-          ['chart-hrv',   get('hrv'),        '#22d3ee', 'ms',  20,  null],
-          ['chart-rhr',   get('rhr'),        '#f87171', 'bpm', 40,  90],
-          ['chart-bb',    get('bb'),         '#fbbf24', '',    0,  100],
-          ['chart-tr',    get('tr'),         '#34d399', '分',  0,  100],
-        ];
-        for (const [id, vals, color, unit, yMin, yMax] of chartDefs) {
-          try {
-            buildChart(id, labels, vals, color, unit, yMin, yMax);
-            console.log(`  ✅ ${id} 渲染成功`);
-          } catch (e) { console.warn(`  ⚠️ ${id} 失敗:`, e); }
-        }
+        window._allDays  = days;
+        window._allDates = dates;
+        renderTrendCharts(30);
         renderScatter(days);
         renderMonthlyStats(days);
+
+        const sel = document.getElementById('trend-range');
+        if (sel) sel.addEventListener('change', () => renderTrendCharts(sel.value));
       }
       try { loader.remove(); } catch(e) {}
     }, 600);
