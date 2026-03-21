@@ -35,8 +35,21 @@
         </div>
 
         <p class="subtitle">準備好測試你的算術能力了嗎？</p>
-        <button id="start-btn" class="btn-primary">開始遊戲</button>
+        <button id="stage-select-btn" class="btn-primary">冒險模式</button>
+        <button id="start-btn" class="btn-secondary mt-2">無盡挑戰</button>
         <button id="shop-btn-start" class="btn-secondary mt-2">前往道具商店</button>
+      </div>
+
+      <!-- Stage Select Screen -->
+      <div id="stage-select-screen" class="screen">
+        <h2>選擇關卡</h2>
+        <div class="stars-display">
+          <span>⭐</span> <span id="stage-select-stars">0</span>
+        </div>
+        <div id="stages-grid" class="stages-grid">
+          <!-- Stage buttons injected via JS -->
+        </div>
+        <button id="stage-select-back-btn" class="btn-secondary mt-2">返回</button>
       </div>
 
       <!-- Avatar Shop Screen -->
@@ -104,9 +117,24 @@
       <div id="game-screen" class="screen">
         <div class="hud">
           <div id="hearts-container" class="hearts-box"></div>
+          
+          <!-- Adventure Mode Progress UI -->
+          <div id="adventure-ui" class="adventure-ui" style="display: none;">
+            <div id="normal-progress" class="normal-progress">
+              <span class="progress-label">進度：</span>
+              <div class="progress-bar"><div id="progress-fill" class="progress-fill"></div></div>
+              <span id="progress-text" class="progress-text-val">0/5</span>
+            </div>
+            <div id="boss-progress" class="boss-progress" style="display: none;">
+              <span class="boss-icon shake" id="boss-icon">😈</span>
+              <div class="boss-hp-bar"><div id="boss-hp-fill" class="boss-hp-fill"></div></div>
+              <span id="boss-hp-text" class="boss-hp-text-val">10/10</span>
+            </div>
+          </div>
+
           <div class="stats-group">
             <div class="timer-box">⏳ <span id="timer">8</span>s</div>
-            <div class="score-box">✨ <span id="score">0</span></div>
+            <div class="score-box" id="score-box-container">✨ <span id="score">0</span></div>
             <button id="end-game-btn" class="btn-secondary btn-small">結束遊戲</button>
           </div>
           <div class="item-bar">
@@ -133,6 +161,18 @@
           <!-- Options will be generated here -->
         </div>
         <p id="feedback-msg" class="feedback"></p>
+      </div>
+
+      <!-- Stage Clear Screen -->
+      <div id="stage-clear-screen" class="screen">
+        <h2 class="victory-title">關卡完成！🎉</h2>
+        <div class="final-score">
+          <p>獲得星星</p>
+          <span id="stage-clear-stars-display">0</span>
+        </div>
+        <button id="next-stage-btn" class="btn-primary">下一關</button>
+        <button id="back-to-stages-btn" class="btn-secondary mt-2">選擇關卡</button>
+        <button id="stage-clear-shop-btn" class="btn-secondary mt-2">✨ 裝扮阿凡達</button>
       </div>
 
       <!-- End Screen -->
