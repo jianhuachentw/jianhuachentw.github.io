@@ -11,7 +11,13 @@ let state = {
   timerInterval: null,
   currentQuestion: { a: 0, b: 0, ans: 0 },
   isPlaying: false,
-  isMuted: false
+  isMuted: false,
+  gameMode: 'endless',
+  currentStage: 1,
+  highestStage: parseInt(localStorage.getItem('ninenine_highest_stage')) || 1,
+  progress: 0,
+  targetScore: 0,
+  isBossStage: false
 };
 
 let shopData = {
@@ -61,6 +67,7 @@ function saveShopData() {
   localStorage.setItem('ninenine_heal_card', shopData.healCard);
   localStorage.setItem('ninenine_avatar_owned', JSON.stringify(shopData.avatarOwned));
   localStorage.setItem('ninenine_avatar_equipped', JSON.stringify(shopData.avatarEquipped));
+  localStorage.setItem('ninenine_highest_stage', state.highestStage);
 }
 
 // --- AudioManager ---
@@ -114,7 +121,9 @@ const screens = {
   game: document.getElementById('game-screen'),
   end: document.getElementById('end-screen'),
   shop: document.getElementById('shop-screen'),
-  avatarShop: document.getElementById('avatar-shop-screen')
+  avatarShop: document.getElementById('avatar-shop-screen'),
+  stageSelect: document.getElementById('stage-select-screen'),
+  stageClear: document.getElementById('stage-clear-screen')
 };
 
 const dom = {
@@ -154,20 +163,56 @@ const dom = {
   mainAvatar: document.getElementById('main-avatar'),
   previewAvatar: document.getElementById('preview-avatar'),
   avatarTabs: document.querySelectorAll('.avatar-tab'),
-  avatarItemsGrid: document.getElementById('avatar-items-grid')
+  avatarItemsGrid: document.getElementById('avatar-items-grid'),
+  // Adventure Mode
+  stageSelectBtn: document.getElementById('stage-select-btn'),
+  stageSelectBackBtn: document.getElementById('stage-select-back-btn'),
+  stagesGrid: document.getElementById('stages-grid'),
+  stageSelectStars: document.getElementById('stage-select-stars'),
+  adventureUi: document.getElementById('adventure-ui'),
+  normalProgress: document.getElementById('normal-progress'),
+  bossProgress: document.getElementById('boss-progress'),
+  progressFill: document.getElementById('progress-fill'),
+  progressText: document.getElementById('progress-text'),
+  bossIcon: document.getElementById('boss-icon'),
+  bossHpFill: document.getElementById('boss-hp-fill'),
+  bossHpText: document.getElementById('boss-hp-text'),
+  stageClearStarsDisplay: document.getElementById('stage-clear-stars-display'),
+  nextStageBtn: document.getElementById('next-stage-btn'),
+  backToStagesBtn: document.getElementById('back-to-stages-btn'),
+  stageClearShopBtn: document.getElementById('stage-clear-shop-btn'),
+  scoreBoxContainer: document.getElementById('score-box-container')
 };
 
 // --- Game Logic ---
 
 function init() {
-  dom.startBtn.addEventListener('click', startGame);
-  dom.restartBtn.addEventListener('click', startGame);
+  dom.startBtn.addEventListener('click', startEndless);
+  dom.stageSelectBtn.addEventListener('click', openStageSelect);
+  dom.stageSelectBackBtn.addEventListener('click', () => switchScreen('start'));
+  dom.nextStageBtn.addEventListener('click', () => startStage(state.currentStage + 1));
+  dom.backToStagesBtn.addEventListener('click', openStageSelect);
+  
+  dom.restartBtn.addEventListener('click', () => {
+    if (state.gameMode === 'adventure') {
+      startStage(state.currentStage);
+    } else {
+      startEndless();
+    }
+  });
   dom.endGameBtn.addEventListener('click', endGame);
   dom.muteBtn.addEventListener('click', toggleMute);
 
   // Shop listeners
   dom.shopBtnStart.addEventListener('click', openShop);
   dom.shopBtnEnd.addEventListener('click', openShop);
+  dom.stageClearShopBtn.addEventListener('click', () => {
+    updateAvatarShopUI();
+    const activeTab = document.querySelector('.avatar-tab.active') || dom.avatarTabs[0];
+    renderAvatarGrid(activeTab.dataset.category);
+    renderAvatar(dom.previewAvatar);
+    switchScreen('avatarShop');
+  });
   dom.shopBackBtn.addEventListener('click', () => switchScreen('start'));
   dom.buyPlus5Btn.addEventListener('click', buyPlus5);
   dom.buyRemoveWrongBtn.addEventListener('click', buyRemoveWrong);
@@ -325,20 +370,87 @@ function toggleMute() {
   if (audioCtx.state === 'suspended') audioCtx.resume();
 }
 
-function startGame() {
-  // Resume AudioContext on user gesture
+function openStageSelect() {
+  dom.stageSelectStars.textContent = shopData.stars;
+  renderStageSelect();
+  switchScreen('stageSelect');
+}
+
+function renderStageSelect() {
+  dom.stagesGrid.innerHTML = '';
+  // Show up to highest stage + 2, max 20
+  const maxDisplay = Math.min(20, Math.max(10, state.highestStage + 2));
+  for (let i = 1; i <= maxDisplay; i++) {
+    const btn = document.createElement('button');
+    const isBoss = i % 5 === 0;
+    btn.className = `stage-btn ${isBoss ? 'boss-stage' : ''}`;
+    
+    if (i <= state.highestStage) {
+      btn.textContent = isBoss ? `😈 ${i}` : i;
+      btn.onclick = () => startStage(i);
+    } else {
+      btn.innerHTML = `<span class="lock-icon">🔒</span>`;
+      btn.disabled = true;
+    }
+    dom.stagesGrid.appendChild(btn);
+  }
+}
+
+function startEndless() {
   if (audioCtx.state === 'suspended') audioCtx.resume();
+  state.gameMode = 'endless';
+  state.score = 0;
+  state.lives = INITIAL_LIVES;
+  state.timeLeft = SECONDS_PER_QUESTION;
+  state.isPlaying = true;
+
+  dom.adventureUi.style.display = 'none';
+  dom.scoreBoxContainer.style.display = 'block';
+
+  updateGameInventoryUI();
+  updateHUD();
+  switchScreen('game');
+  generateQuestion();
+  audio.start();
+  startTimer();
+}
+
+function startStage(level) {
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  state.gameMode = 'adventure';
+  state.currentStage = level;
+  state.isBossStage = (level % 5 === 0);
+  state.progress = 0;
+  
+  if (state.isBossStage) {
+    state.targetScore = 10 + Math.floor(level / 5) * 5; 
+  } else {
+    state.targetScore = 5 + level; 
+  }
 
   state.score = 0;
   state.lives = INITIAL_LIVES;
   state.timeLeft = SECONDS_PER_QUESTION;
   state.isPlaying = true;
 
+  // Setup UI
+  dom.adventureUi.style.display = 'flex';
+  dom.scoreBoxContainer.style.display = 'none'; 
+  
+  if (state.isBossStage) {
+    dom.normalProgress.style.display = 'none';
+    dom.bossProgress.style.display = 'flex';
+    dom.bossIcon.classList.add('shake-infinite');
+  } else {
+    dom.normalProgress.style.display = 'flex';
+    dom.bossProgress.style.display = 'none';
+    dom.bossIcon.classList.remove('shake-infinite');
+  }
+
   updateGameInventoryUI();
   updateHUD();
   switchScreen('game');
   generateQuestion();
-
   audio.start();
   startTimer();
 }
@@ -408,13 +520,49 @@ function endGame() {
   switchScreen('end');
 }
 
+function stageCleared() {
+  state.isPlaying = false;
+  clearInterval(state.timerInterval);
+  
+  audio.correct(); 
+  setTimeout(() => audio.correct(), 200);
+
+  let starsEarned = state.currentStage * 20;
+  if (state.isBossStage) starsEarned += 100;
+  
+  shopData.stars += starsEarned;
+  
+  if (state.currentStage === state.highestStage) {
+    state.highestStage++;
+  }
+  saveShopData();
+
+  dom.stageClearStarsDisplay.textContent = starsEarned;
+  switchScreen('stageClear');
+}
+
 function generateQuestion() {
   state.timeLeft = SECONDS_PER_QUESTION;
-  updateHUD();
-
-  const a = Math.floor(Math.random() * 8) + 2;
-  const b = Math.floor(Math.random() * 8) + 2;
+  
+  let a, b;
+  if (state.gameMode === 'adventure') {
+    let maxDigit = 9;
+    let minDigit = 2;
+    if (state.currentStage <= 2) {
+      maxDigit = 5;
+    } else if (state.currentStage >= 10 && !state.isBossStage) {
+      minDigit = 4;
+      maxDigit = 12;
+    }
+    a = Math.floor(Math.random() * (maxDigit - minDigit + 1)) + minDigit;
+    b = Math.floor(Math.random() * (maxDigit - minDigit + 1)) + minDigit;
+  } else {
+    a = Math.floor(Math.random() * 8) + 2;
+    b = Math.floor(Math.random() * 8) + 2;
+  }
+  
   const correctAnswer = a * b;
+
 
   state.currentQuestion = { a, b, ans: correctAnswer };
 
@@ -458,17 +606,29 @@ function renderOptions(options) {
 
 function checkAnswer(userVal, btnElement) {
   if (!state.isPlaying) return;
-
-  // Ensure audio context is active
   if (audioCtx.state === 'suspended') audioCtx.resume();
 
   if (userVal === state.currentQuestion.ans) {
     state.score += 10;
     audio.correct();
     triggerFeedback(btnElement, 'pulse');
+    
+    if (state.gameMode === 'adventure') {
+      state.progress++;
+      if (state.isBossStage) {
+        triggerFeedback(dom.bossIcon, 'shake');
+      }
+      updateHUD();
+      
+      if (state.progress >= state.targetScore) {
+        setTimeout(stageCleared, 300);
+        return;
+      }
+    } else {
+      updateHUD();
+    }
 
     setTimeout(generateQuestion, 300);
-    updateHUD();
   } else {
     handleWrongAction(btnElement);
   }
@@ -483,6 +643,18 @@ function triggerFeedback(el, type) {
 function updateHUD() {
   dom.timer.textContent = state.timeLeft;
   dom.score.textContent = state.score;
+  
+  if (state.gameMode === 'adventure') {
+    if (state.isBossStage) {
+      let hpLeft = Math.max(0, state.targetScore - state.progress);
+      dom.bossHpText.textContent = `${hpLeft}/${state.targetScore}`;
+      dom.bossHpFill.style.width = `${(hpLeft / state.targetScore) * 100}%`;
+    } else {
+      dom.progressText.textContent = `${Math.min(state.progress, state.targetScore)}/${state.targetScore}`;
+      dom.progressFill.style.width = `${(state.progress / state.targetScore) * 100}%`;
+    }
+  }
+  
   renderHearts();
   updateGameInventoryUI();
 }
