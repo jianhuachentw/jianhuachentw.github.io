@@ -1147,6 +1147,9 @@ function extractMetrics(data, dateStr) {
   const hrv = data?.hrv_data?.hrvSummary?.lastNightAvg ?? null;
   const hrvWeekly = data?.hrv_data?.hrvSummary?.weeklyAvg ?? null;
   const hrvStatus = data?.hrv_data?.hrvSummary?.status ?? null;
+  const hrvBaselineLowUpper = data?.hrv_data?.hrvSummary?.baseline?.lowUpper ?? null;
+  const hrvBaselineBalancedLow = data?.hrv_data?.hrvSummary?.baseline?.balancedLow ?? null;
+  const hrvBaselineBalancedUpper = data?.hrv_data?.hrvSummary?.baseline?.balancedUpper ?? null;
 
   // RHR
   let rhr = null;
@@ -1232,7 +1235,25 @@ function extractMetrics(data, dateStr) {
     }
   }).filter(Boolean);
 
-  return { dateStr, hrv, hrvWeekly, hrvStatus, rhr, sleepScore, deepSec, lightSec, remSec, totalSec, bb, tr, trLevel, acts };
+  return {
+    dateStr,
+    hrv,
+    hrvWeekly,
+    hrvStatus,
+    hrvBaselineLowUpper,
+    hrvBaselineBalancedLow,
+    hrvBaselineBalancedUpper,
+    rhr,
+    sleepScore,
+    deepSec,
+    lightSec,
+    remSec,
+    totalSec,
+    bb,
+    tr,
+    trLevel,
+    acts,
+  };
 }
 
 /* ─── Charts ──────────────────────────────────────────── */
@@ -1283,27 +1304,97 @@ function renderTrendCharts(daysCount) {
   const bbVals    = get('bb');
   const trVals    = get('tr');
 
+  const latestHrvBaseline = [...trendDays]
+    .reverse()
+    .find(d => d?.hrvBaselineLowUpper != null || d?.hrvBaselineBalancedLow != null || d?.hrvBaselineBalancedUpper != null);
+
+  const hrvBandVals = [
+    ...hrvVals.filter(v => v != null),
+    latestHrvBaseline?.hrvBaselineLowUpper,
+    latestHrvBaseline?.hrvBaselineBalancedLow,
+    latestHrvBaseline?.hrvBaselineBalancedUpper,
+  ].filter(v => v != null);
+
   const sleepRange = getDynamicRange(sleepVals, { floor: 20, ceil: 100, pad: 5, step: 5, minSpan: 20 });
-  const hrvRange   = getDynamicRange(hrvVals,   { floor: 0,  ceil: null, pad: 5, step: 5, minSpan: 20 });
+  const hrvRange   = getDynamicRange(hrvBandVals, { floor: 0,  ceil: null, pad: 5, step: 5, minSpan: 20 });
   const rhrRange   = getDynamicRange(rhrVals,   { floor: 30, ceil: 100, pad: 3, step: 5, minSpan: 20 });
   const bbRange    = getDynamicRange(bbVals,    { floor: 0,  ceil: 100, pad: 5, step: 5, minSpan: 20 });
   const trRange    = getDynamicRange(trVals,    { floor: 0,  ceil: 100, pad: 5, step: 5, minSpan: 20 });
 
   const chartDefs = [
-    ['chart-sleep', sleepVals, '#a78bfa', '分',  sleepRange.min, sleepRange.max],
-    ['chart-hrv',   hrvVals,   '#22d3ee', 'ms',  hrvRange.min,   hrvRange.max],
-    ['chart-rhr',   rhrVals,   '#f87171', 'bpm', rhrRange.min,   rhrRange.max],
-    ['chart-bb',    bbVals,    '#fbbf24', '',    bbRange.min,    bbRange.max],
-    ['chart-tr',    trVals,    '#34d399', '分',  trRange.min,    trRange.max],
+    ['chart-sleep', sleepVals, '#a78bfa', '分',  sleepRange.min, sleepRange.max, null],
+    ['chart-hrv',   hrvVals,   '#22d3ee', 'ms',  hrvRange.min,   hrvRange.max, latestHrvBaseline ? {
+      lowUpper: latestHrvBaseline.hrvBaselineLowUpper,
+      balancedLow: latestHrvBaseline.hrvBaselineBalancedLow,
+      balancedUpper: latestHrvBaseline.hrvBaselineBalancedUpper,
+    } : null],
+    ['chart-rhr',   rhrVals,   '#f87171', 'bpm', rhrRange.min,   rhrRange.max, null],
+    ['chart-bb',    bbVals,    '#fbbf24', '',    bbRange.min,    bbRange.max, null],
+    ['chart-tr',    trVals,    '#34d399', '分',  trRange.min,    trRange.max, null],
   ];
-  for (const [id, vals, color, unit, yMin, yMax] of chartDefs) {
+  for (const [id, vals, color, unit, yMin, yMax, extra] of chartDefs) {
     try {
       if (_trendCharts[id]) { _trendCharts[id].destroy(); delete _trendCharts[id]; }
-      _trendCharts[id] = buildChart(id, labels, vals, color, unit, yMin, yMax);
+      _trendCharts[id] = buildChart(id, labels, vals, color, unit, yMin, yMax, { hrvBaselineBand: extra });
       console.log(`  ✅ ${id} 渲染成功`);
     } catch (e) { console.warn(`  ⚠️ ${id} 失敗:`, e); }
   }
 }
+
+const hrvBaselineBandPlugin = {
+  id: 'hrvBaselineBandPlugin',
+  beforeDatasetsDraw(chart) {
+    const cfg = chart?.config?.hrvBaselineBand;
+    if (!cfg) return;
+    const { lowUpper, balancedLow, balancedUpper } = cfg;
+    if ([lowUpper, balancedLow, balancedUpper].every(v => v == null)) return;
+
+    const y = chart.scales?.y;
+    const area = chart.chartArea;
+    const ctx = chart.ctx;
+    if (!y || !area) return;
+
+    const clampY = (value) => {
+      const py = y.getPixelForValue(value);
+      return Math.max(area.top, Math.min(area.bottom, py));
+    };
+
+    ctx.save();
+
+    if (balancedLow != null && balancedUpper != null) {
+      const top = clampY(balancedUpper);
+      const bottom = clampY(balancedLow);
+      ctx.fillStyle = 'rgba(52, 211, 153, 0.12)';
+      ctx.fillRect(area.left, top, area.right - area.left, bottom - top);
+    }
+
+    if (lowUpper != null && balancedLow != null && balancedLow > lowUpper) {
+      const top = clampY(balancedLow);
+      const bottom = clampY(lowUpper);
+      ctx.fillStyle = 'rgba(251, 191, 36, 0.10)';
+      ctx.fillRect(area.left, top, area.right - area.left, bottom - top);
+    }
+
+    const drawLine = (value, color) => {
+      if (value == null) return;
+      const py = clampY(value);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      ctx.moveTo(area.left, py);
+      ctx.lineTo(area.right, py);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    };
+
+    drawLine(lowUpper, 'rgba(251, 191, 36, 0.55)');
+    drawLine(balancedLow, 'rgba(52, 211, 153, 0.65)');
+    drawLine(balancedUpper, 'rgba(52, 211, 153, 0.45)');
+
+    ctx.restore();
+  }
+};
 
 const minMaxLabelPlugin = {
   id: 'minMaxLabelPlugin',
@@ -1364,7 +1455,7 @@ const minMaxLabelPlugin = {
   }
 };
 
-function buildChart(id, labels, values, color, yLabel, yMin, yMax) {
+function buildChart(id, labels, values, color, yLabel, yMin, yMax, extra = {}) {
   const canvas = document.getElementById(id);
   if (!canvas) return;
   const opts = {
@@ -1409,7 +1500,8 @@ function buildChart(id, labels, values, color, yLabel, yMin, yMax) {
       }],
     },
     options: opts,
-    plugins: [minMaxLabelPlugin],
+    plugins: [hrvBaselineBandPlugin, minMaxLabelPlugin],
+    hrvBaselineBand: extra.hrvBaselineBand || null,
   });
 }
 
