@@ -1238,6 +1238,37 @@ function extractMetrics(data, dateStr) {
 /* ─── Charts ──────────────────────────────────────────── */
 const _trendCharts = {};
 
+function getDynamicRange(values, { floor = null, ceil = null, pad = 0, step = 5, minSpan = null } = {}) {
+  const valid = values.filter(v => v !== null && v !== undefined && !Number.isNaN(v));
+  if (!valid.length) return { min: floor, max: ceil };
+
+  let min = Math.min(...valid);
+  let max = Math.max(...valid);
+
+  min -= pad;
+  max += pad;
+
+  if (step) {
+    min = Math.floor(min / step) * step;
+    max = Math.ceil(max / step) * step;
+  }
+
+  if (minSpan !== null && (max - min) < minSpan) {
+    const extra = (minSpan - (max - min)) / 2;
+    min -= extra;
+    max += extra;
+    if (step) {
+      min = Math.floor(min / step) * step;
+      max = Math.ceil(max / step) * step;
+    }
+  }
+
+  if (floor !== null) min = Math.max(floor, min);
+  if (ceil !== null) max = Math.min(ceil, max);
+
+  return { min, max };
+}
+
 function renderTrendCharts(daysCount) {
   if (typeof Chart === 'undefined' || !window._allDays || !window._allDates) return;
   const n = parseInt(daysCount) || 30;
@@ -1246,12 +1277,24 @@ function renderTrendCharts(daysCount) {
   const labels = trendDates.map(displayDate);
   const get = key => trendDays.map(d => d?.[key] ?? null);
 
+  const sleepVals = get('sleepScore');
+  const hrvVals   = get('hrv');
+  const rhrVals   = get('rhr');
+  const bbVals    = get('bb');
+  const trVals    = get('tr');
+
+  const sleepRange = getDynamicRange(sleepVals, { floor: 20, ceil: 100, pad: 5, step: 5, minSpan: 20 });
+  const hrvRange   = getDynamicRange(hrvVals,   { floor: 0,  ceil: null, pad: 5, step: 5, minSpan: 20 });
+  const rhrRange   = getDynamicRange(rhrVals,   { floor: 30, ceil: 100, pad: 3, step: 5, minSpan: 20 });
+  const bbRange    = getDynamicRange(bbVals,    { floor: 0,  ceil: 100, pad: 5, step: 5, minSpan: 20 });
+  const trRange    = getDynamicRange(trVals,    { floor: 0,  ceil: 100, pad: 5, step: 5, minSpan: 20 });
+
   const chartDefs = [
-    ['chart-sleep', get('sleepScore'), '#a78bfa', '分',  40, 100],
-    ['chart-hrv',   get('hrv'),        '#22d3ee', 'ms',  20,  null],
-    ['chart-rhr',   get('rhr'),        '#f87171', 'bpm', 40,  90],
-    ['chart-bb',    get('bb'),         '#fbbf24', '',    0,  100],
-    ['chart-tr',    get('tr'),         '#34d399', '分',  0,  100],
+    ['chart-sleep', sleepVals, '#a78bfa', '分',  sleepRange.min, sleepRange.max],
+    ['chart-hrv',   hrvVals,   '#22d3ee', 'ms',  hrvRange.min,   hrvRange.max],
+    ['chart-rhr',   rhrVals,   '#f87171', 'bpm', rhrRange.min,   rhrRange.max],
+    ['chart-bb',    bbVals,    '#fbbf24', '',    bbRange.min,    bbRange.max],
+    ['chart-tr',    trVals,    '#34d399', '分',  trRange.min,    trRange.max],
   ];
   for (const [id, vals, color, unit, yMin, yMax] of chartDefs) {
     try {
@@ -1261,6 +1304,63 @@ function renderTrendCharts(daysCount) {
     } catch (e) { console.warn(`  ⚠️ ${id} 失敗:`, e); }
   }
 }
+
+const minMaxLabelPlugin = {
+  id: 'minMaxLabelPlugin',
+  afterDatasetsDraw(chart) {
+    const { ctx } = chart;
+    const meta = chart.getDatasetMeta(0);
+    const data = chart.data.datasets?.[0]?.data || [];
+    if (!meta?.data?.length || !data.length) return;
+
+    const valid = data
+      .map((v, i) => ({ v, i }))
+      .filter(p => p.v !== null && p.v !== undefined && !Number.isNaN(p.v));
+    if (!valid.length) return;
+
+    let minPoint = valid[0];
+    let maxPoint = valid[0];
+    for (const p of valid) {
+      if (p.v < minPoint.v) minPoint = p;
+      if (p.v > maxPoint.v) maxPoint = p;
+    }
+
+    const drawLabel = (pointInfo, text, above = true) => {
+      const el = meta.data[pointInfo.i];
+      if (!el) return;
+      const x = el.x;
+      const y = el.y;
+      const label = String(text);
+      ctx.save();
+      ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const paddingX = 6;
+      const paddingY = 4;
+      const textW = ctx.measureText(label).width;
+      const boxW = textW + paddingX * 2;
+      const boxH = 22;
+      const boxX = x - boxW / 2;
+      const boxY = above ? y - 30 : y + 8;
+
+      ctx.fillStyle = 'rgba(10,12,16,0.9)';
+      ctx.strokeStyle = 'rgba(136,146,164,0.35)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(boxX, boxY, boxW, boxH, 8);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#e8edf5';
+      ctx.fillText(label, x, boxY + boxH / 2);
+      ctx.restore();
+    };
+
+    drawLabel(maxPoint, maxPoint.v, true);
+    if (minPoint.i === maxPoint.i) return;
+    drawLabel(minPoint, minPoint.v, false);
+  }
+};
 
 function buildChart(id, labels, values, color, yLabel, yMin, yMax) {
   const canvas = document.getElementById(id);
@@ -1307,6 +1407,7 @@ function buildChart(id, labels, values, color, yLabel, yMin, yMax) {
       }],
     },
     options: opts,
+    plugins: [minMaxLabelPlugin],
   });
 }
 
