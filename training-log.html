@@ -839,7 +839,7 @@
         <div>
           <div class="brand-title">訓練日誌</div>
           <div class="brand-subtitle">Garmin Connect · 個人健康數據</div>
-          <div class="brand-version">版本 2026-04-05 16:33 · build 2</div>
+          <div class="brand-version">版本 2026-04-05 16:35 · build 3</div>
         </div>
       </div>
       <div class="header-meta">
@@ -1360,7 +1360,7 @@ function renderTrendCharts(daysCount) {
 const hrvBaselineBandPlugin = {
   id: 'hrvBaselineBandPlugin',
   beforeDatasetsDraw(chart) {
-    const cfg = chart?.config?.hrvBaselineBand;
+    const cfg = chart?.options?.plugins?.hrvBaselineBandPlugin;
     if (!cfg) return;
     const { lowUpper, balancedLow, balancedUpper } = cfg;
     if ([lowUpper, balancedLow, balancedUpper].every(v => v == null)) return;
@@ -1478,7 +1478,10 @@ function buildChart(id, labels, values, color, yLabel, yMin, yMax, extra = {}) {
     responsive: true,
     maintainAspectRatio: false,
     interaction: { mode: 'index', intersect: false },
-    plugins: { legend: { display: false } },
+    plugins: {
+      legend: { display: false },
+      hrvBaselineBandPlugin: extra.hrvBaselineBand || null,
+    },
     scales: {
       x: {
         ticks: {
@@ -1517,7 +1520,6 @@ function buildChart(id, labels, values, color, yLabel, yMin, yMax, extra = {}) {
     },
     options: opts,
     plugins: [hrvBaselineBandPlugin, minMaxLabelPlugin],
-    hrvBaselineBand: extra.hrvBaselineBand || null,
   });
 }
 
