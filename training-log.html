@@ -1336,11 +1336,13 @@ const minMaxLabelPlugin = {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       const paddingX = 6;
-      const paddingY = 4;
       const textW = ctx.measureText(label).width;
       const boxW = textW + paddingX * 2;
       const boxH = 22;
-      const boxX = x - boxW / 2;
+      const chartLeft = chart.chartArea.left;
+      const chartRight = chart.chartArea.right;
+      const clampedX = Math.min(Math.max(x, chartLeft + boxW / 2), chartRight - boxW / 2);
+      const boxX = clampedX - boxW / 2;
       const boxY = above ? y - 30 : y + 8;
 
       ctx.fillStyle = 'rgba(10,12,16,0.9)';
@@ -1352,7 +1354,7 @@ const minMaxLabelPlugin = {
       ctx.stroke();
 
       ctx.fillStyle = '#e8edf5';
-      ctx.fillText(label, x, boxY + boxH / 2);
+      ctx.fillText(label, clampedX, boxY + boxH / 2);
       ctx.restore();
     };
 
