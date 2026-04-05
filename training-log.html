@@ -846,6 +846,7 @@
   <div class="charts-section">
     <div class="section-title" style="display:flex;align-items:center;gap:12px;">30 天趨勢
       <select id="trend-range" style="background:#1e2235;color:#a0aabf;border:1px solid #2a3044;border-radius:6px;padding:2px 8px;font-size:13px;cursor:pointer;">
+        <option value="14" selected>14天</option>
         <option value="30">30天</option>
         <option value="90">90天</option>
         <option value="365">全覽</option>
@@ -1583,7 +1584,7 @@ async function main() {
       if (typeof Chart !== 'undefined') {
         window._allDays  = days;
         window._allDates = dates;
-        renderTrendCharts(30);
+        renderTrendCharts(14);
         renderScatter(days);
         renderMonthlyStats(days);
 
